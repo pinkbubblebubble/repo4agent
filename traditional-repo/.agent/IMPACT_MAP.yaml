@@ -1,0 +1,65 @@
+version: "1.0"
+
+# Cross-module impact map.
+# Only non-obvious impacts — things not findable by reading import statements.
+
+nodes:
+
+  src/utils/db.ts:
+    role: "Singleton data layer — exports the two in-memory Maps and utility functions"
+    why_non_obvious: >
+      This file is NOT a passive type file. It holds live runtime state (userStore,
+      sessionStore) that persists across all imports within the same process. Changing
+      the shape of User or Session interfaces here cascades silently — TypeScript will
+      catch field renames, but removing a field used downstream causes runtime gaps, not
+      compile errors, if the removed field is accessed via bracket notation or spread.
+    exported_state:
+      - userStore: "Map<string, User> — consumed by userController.ts (R/W) and authController.ts (R)"
+      - sessionStore: "Map<string, Session> — consumed by authController.ts (R/W) and authMiddleware.ts (R)"
+      - clearStores(): "Wipes BOTH stores — imported by both test files; calling this in any non-test path resets all application state"
+    direct_consumers:
+      - src/controllers/userController.ts
+      - src/controllers/authController.ts
+      - src/middleware/authMiddleware.ts
+      - tests/user.test.ts
+      - tests/auth.test.ts
+    cascade_risk: HIGH
+
+  src/middleware/authMiddleware.ts:
+    role: "Token validator — reads sessionStore, injects req.userId and req.sessionToken"
+    why_non_obvious: >
+      authMiddleware does NOT verify that the user referenced by session.userId still
+      exists in userStore. After INV-001 (user deleted without session purge), the
+      middleware happily sets req.userId to a stale ID that no longer resolves to a
+      user record. Downstream controllers will then return 404 rather than 401, which
+      leaks the fact that a resource once existed.
+    injected_request_fields:
+      - req.userId: "string — the userId from the matched session; used by authController.logout"
+      - req.sessionToken: "string — the raw bearer token; used by authController.logout to find the session to delete"
+    direct_consumers:
+      - src/routes/userRoutes.ts   # guards GET, PUT, DELETE /users/:id
+      - src/routes/authRoutes.ts   # guards POST /auth/logout
+    cascade_risk: HIGH
+
+  src/models/User.ts:
+    role: "Type definitions + toUserResponse() sanitiser"
+    why_non_obvious: >
+      toUserResponse() is the sole mechanism that strips passwordHash from outbound
+      responses. It is called in userController.ts (createUser, updateUser, getUserById).
+      Any new endpoint that returns user data and bypasses this function will leak
+      passwordHash. The UserModel interface in this file and the User interface in
+      db.ts are structurally identical but separately declared — they must be kept in sync
+      manually; there is no shared base type.
+    exported_symbols:
+      - toUserResponse: "called in userController.ts (3 usages) — the only password sanitisation point"
+      - UserResponse: "the safe outbound shape; add fields here if the API response needs to grow"
+    cascade_risk: MEDIUM
+
+  src/models/Session.ts:
+    role: "Type definitions only — SessionModel, LoginInput, LoginResponse"
+    why_non_obvious: >
+      SessionModel declared here and Session interface in db.ts are structurally
+      identical but maintained separately. Neither imports the other. A field added to
+      one must be manually added to the other or TypeScript structural typing will mask
+      the inconsistency at call sites that use spread operators.
+    cascade_risk: LOW

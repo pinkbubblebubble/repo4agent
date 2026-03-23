@@ -1,0 +1,55 @@
+version: "1.0"
+project: "user-management-api"
+stack: ["TypeScript", "Express", "Jest"]
+entry: "src/app.ts"
+test_cmd: "npm test"
+
+capabilities:
+  user.create:
+    description: "Create a new user account"
+    handler: "src/user/user.create.handler.ts"
+    contract: "src/user/user.contract.ts#CreateUserInput"
+    side_effects: ["writes_user_store"]
+    dependencies: ["_shared/db"]
+    tests: "src/user/user.test.ts#create"
+
+  user.get:
+    description: "Retrieve user by ID"
+    handler: "src/user/user.get.handler.ts"
+    contract: "src/user/user.contract.ts#GetUserInput"
+    side_effects: []
+    dependencies: ["_shared/db"]
+    tests: "src/user/user.test.ts#get"
+
+  user.update:
+    description: "Update user fields"
+    handler: "src/user/user.update.handler.ts"
+    contract: "src/user/user.contract.ts#UpdateUserInput"
+    side_effects: ["writes_user_store"]
+    dependencies: ["_shared/db"]
+    tests: "src/user/user.test.ts#update"
+
+  user.delete:
+    description: "Delete user by ID"
+    handler: "src/user/user.delete.handler.ts"
+    contract: "src/user/user.contract.ts#DeleteUserInput"
+    side_effects: ["writes_user_store"]
+    dependencies: ["_shared/db"]
+    tests: "src/user/user.test.ts#delete"
+    known_issues: "Does not invalidate active sessions - see INV-002"
+
+  auth.login:
+    description: "Authenticate user, return session token"
+    handler: "src/auth/auth.login.handler.ts"
+    contract: "src/auth/auth.contract.ts#LoginInput"
+    side_effects: ["writes_session_store"]
+    dependencies: ["_shared/db", "user.get"]
+    tests: "src/auth/auth.test.ts#login"
+
+  auth.logout:
+    description: "Invalidate session token"
+    handler: "src/auth/auth.logout.handler.ts"
+    contract: "src/auth/auth.contract.ts#LogoutInput"
+    side_effects: ["writes_session_store"]
+    dependencies: ["_shared/db"]
+    tests: "src/auth/auth.test.ts#logout"

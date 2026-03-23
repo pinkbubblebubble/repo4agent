@@ -1,0 +1,121 @@
+version: "1.0"
+capabilities:
+
+  U-01:
+    id: U-01
+    operation: Create user
+    handler: src/controllers/userController.ts
+    method: POST /users
+    auth_required: false
+    side_effects:
+      - "userStore: INSERT new User record (key = uuid)"
+    dependencies:
+      - src/utils/db.ts          # userStore, generateId
+      - src/models/User.ts       # toUserResponse (strips passwordHash from response)
+    constraints:
+      - "email must be unique across userStore (linear scan — not atomic)"
+      - "password is bcrypt-hashed with SALT_ROUNDS=10 before storage"
+      - "response NEVER includes passwordHash or password"
+    known_issues: null
+    test_coverage:
+      file: tests/user.test.ts
+      describe: "User API > POST /users - Create User"
+
+  U-02:
+    id: U-02
+    operation: Get user by ID
+    handler: src/controllers/userController.ts
+    method: GET /users/:id
+    auth_required: true
+    side_effects: []
+    dependencies:
+      - src/utils/db.ts               # userStore (read-only)
+      - src/models/User.ts            # toUserResponse
+      - src/middleware/authMiddleware.ts  # authMiddleware
+    constraints:
+      - "Any authenticated user can fetch ANY user's record — no ownership check"
+    known_issues: null
+    test_coverage:
+      file: tests/user.test.ts
+      describe: "User API > GET /users/:id - Get User"
+
+  U-03:
+    id: U-03
+    operation: Update user
+    handler: src/controllers/userController.ts
+    method: PUT /users/:id
+    auth_required: true
+    side_effects:
+      - "userStore: UPDATE existing User record (replaces name, email, and/or passwordHash)"
+    dependencies:
+      - src/utils/db.ts               # userStore, generateId
+      - src/models/User.ts            # toUserResponse
+      - src/middleware/authMiddleware.ts  # authMiddleware
+    constraints:
+      - "Any authenticated user can update ANY user's record — no ownership check"
+      - "email uniqueness re-checked on change (linear scan)"
+      - "password re-hashed if provided; otherwise existing passwordHash is preserved"
+      - "updatedAt is always refreshed on any successful PUT"
+    known_issues: null
+    test_coverage:
+      file: tests/user.test.ts
+      describe: "User API > PUT /users/:id - Update User"
+
+  U-04:
+    id: U-04
+    operation: Delete user
+    handler: src/controllers/userController.ts
+    method: DELETE /users/:id
+    auth_required: true
+    side_effects:
+      - "userStore: DELETE User record by id"
+      - "sessionStore: NOT purged — ACTIVE BUG (INV-001)"
+    dependencies:
+      - src/utils/db.ts               # userStore (sessionStore intentionally NOT called — bug)
+      - src/middleware/authMiddleware.ts  # authMiddleware
+    constraints:
+      - "Any authenticated user can delete ANY user's record — no ownership check"
+      - "Returns 204 No Content on success"
+    known_issues:
+      - "INV-001: Sessions for the deleted user remain in sessionStore. The deleted user's bearer tokens continue to pass authMiddleware, making authenticated requests to other endpoints."
+    test_coverage:
+      file: tests/user.test.ts
+      describe: "User API > DELETE /users/:id - Delete User"
+
+  A-01:
+    id: A-01
+    operation: Login
+    handler: src/controllers/authController.ts
+    method: POST /auth/login
+    auth_required: false
+    side_effects:
+      - "sessionStore: INSERT new Session record (key = sessionId uuid, value contains token uuid)"
+    dependencies:
+      - src/utils/db.ts    # userStore (read), sessionStore (write), generateId
+    constraints:
+      - "Returns generic 401 for both wrong password AND unknown email (no enumeration)"
+      - "No limit on concurrent sessions per user — each login creates an additional session"
+      - "Token is a raw UUID, not a signed JWT — no expiry"
+    known_issues: null
+    test_coverage:
+      file: tests/auth.test.ts
+      describe: "Auth API > POST /auth/login - Login"
+
+  A-02:
+    id: A-02
+    operation: Logout
+    handler: src/controllers/authController.ts
+    method: POST /auth/logout
+    auth_required: true
+    side_effects:
+      - "sessionStore: DELETE the single session matching req.sessionToken"
+    dependencies:
+      - src/utils/db.ts               # sessionStore (write)
+      - src/middleware/authMiddleware.ts  # authMiddleware (populates req.sessionToken)
+    constraints:
+      - "Only the calling session is removed — other active sessions for the same user are unaffected"
+      - "Returns 204 No Content on success"
+    known_issues: null
+    test_coverage:
+      file: tests/auth.test.ts
+      describe: "Auth API > POST /auth/logout - Logout"

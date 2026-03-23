@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.js.map
+.DS_Store
+__pycache__/
+*.pyc
+.env
+
+# Experiment scratch
+experiment/runs/
+experiment/__pycache__/
+
+# Claude Code local settings (personal overrides)
+.claude/settings.local.json

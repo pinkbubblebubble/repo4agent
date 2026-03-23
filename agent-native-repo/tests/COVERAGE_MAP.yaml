@@ -1,0 +1,58 @@
+coverage_map:
+  "user.create":
+    test_file: "src/user/user.test.ts"
+    describe: "user.create"
+    cases:
+      - "creates user and returns response without password fields"
+      - "returns 400 if required fields are missing"
+      - "returns 409 if email already in use"
+
+  "user.get":
+    test_file: "src/user/user.test.ts"
+    describe: "user.get"
+    cases:
+      - "returns user when authenticated"
+      - "returns 401 without token (INV-003)"
+      - "returns 404 for non-existent user"
+
+  "user.update":
+    test_file: "src/user/user.test.ts"
+    describe: "user.update"
+    cases:
+      - "updates user fields"
+      - "returns 401 without token (INV-003)"
+      - "returns 404 for non-existent user"
+
+  "user.delete":
+    test_file: "src/user/user.test.ts"
+    describe: "user.delete"
+    cases:
+      - "deletes user successfully"
+      - "returns 401 without token (INV-003)"
+      - "returns 404 for non-existent user"
+
+  "auth.login":
+    test_file: "src/auth/auth.test.ts"
+    describe: "auth.login"
+    cases:
+      - "returns token and userId on valid credentials"
+      - "returns 401 on wrong password"
+      - "returns 401 on unknown email"
+      - "returns 400 if fields missing"
+
+  "auth.logout":
+    test_file: "src/auth/auth.test.ts"
+    describe: "auth.logout"
+    cases:
+      - "invalidates session token after logout"
+      - "returns 401 without token"
+
+  "INV-003":
+    test_file: "src/auth/auth.test.ts"
+    describe: "INV-003: auth protection"
+    cases:
+      - "GET /users/:id requires auth"
+      - "PUT /users/:id requires auth"
+      - "DELETE /users/:id requires auth"
+      - "POST /auth/logout requires auth"
+      - "POST /users does NOT require auth (registration)"
