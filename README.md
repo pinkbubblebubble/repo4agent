@@ -163,7 +163,7 @@ The final design was arrived at through three iterations. Each was run as a sepa
 
 The research produced a Claude Code skill that generates the full agent-native metadata layer for any existing codebase automatically.
 
-**Install via plugin (recommended)**
+**Install**
 
 ```bash
 /plugin marketplace add pinkbubblebubble/Repo4Agent
@@ -172,14 +172,18 @@ The research produced a Claude Code skill that generates the full agent-native m
 
 Then run `/repo4agent:init-agent-repo` in any project.
 
-**Install manually**
+**Alternative: Manual Installation**
 
 ```bash
-mkdir -p ~/.claude/skills/init-agent-repo
-cp skill/init-agent-repo/SKILL.md ~/.claude/skills/init-agent-repo/SKILL.md
-```
+# Clone the repo
+git clone https://github.com/pinkbubblebubble/Repo4Agent.git
 
-Restart Claude Code, then run `/init-agent-repo` in any project.
+# Copy plugin to Claude Code plugins directory
+cp -r Repo4Agent/skills/init-agent-repo ~/.claude/plugins/repo4agent
+
+# Reload plugins
+/reload-plugins
+```
 
 **What it generates**
 

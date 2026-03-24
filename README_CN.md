@@ -163,7 +163,7 @@ src/
 
 本研究产出了一个 Claude Code 技能，可以自动为任何现有代码库生成完整的 Agent 原生元数据层。
 
-**通过 plugin 安装（推荐）**
+**安装**
 
 ```bash
 /plugin marketplace add pinkbubblebubble/Repo4Agent
@@ -172,14 +172,18 @@ src/
 
 然后在任意项目中运行 `/repo4agent:init-agent-repo`。
 
-**手动安装**
+**备选：手动安装**
 
 ```bash
-mkdir -p ~/.claude/skills/init-agent-repo
-cp skill/init-agent-repo/SKILL.md ~/.claude/skills/init-agent-repo/SKILL.md
-```
+# 克隆仓库
+git clone https://github.com/pinkbubblebubble/Repo4Agent.git
 
-重启 Claude Code，然后在任意项目中运行 `/init-agent-repo`。
+# 复制插件到 Claude Code 插件目录
+cp -r Repo4Agent/skills/init-agent-repo ~/.claude/plugins/repo4agent
+
+# 重载插件
+/reload-plugins
+```
 
 **自动生成的文件**
 
