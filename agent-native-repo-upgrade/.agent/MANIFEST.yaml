@@ -1,0 +1,91 @@
+# MANIFEST.yaml — Capability Registry
+# Lists every externally-visible capability with handler, contract, side effects, and tests.
+# Update via COMMIT_PROTOCOL.md when adding or modifying capabilities.
+
+version: "2.0"
+project: "user-management-api"
+stack: ["TypeScript", "Express", "Jest"]
+entry: "src/app.ts"
+test_cmd: "npm test"
+
+capabilities:
+
+  user.create:
+    description: "Register a new user account with hashed password"
+    handler: "src/user/user.create.handler.ts#createUser"
+    contract: "src/user/user.contract.ts#CreateUserInput"
+    side_effects:
+      - writes: userStore
+        detail: "Inserts new User record keyed by generated ID"
+    dependencies: [src/_shared/db.ts]
+    tests: "src/user/user.test.ts#create"
+
+  user.get:
+    description: "Retrieve a single user by ID (password field stripped)"
+    handler: "src/user/user.get.handler.ts#getUser"
+    contract: "src/user/user.contract.ts#GetUserInput"
+    side_effects: []
+    dependencies: [src/_shared/db.ts]
+    tests: "src/user/user.test.ts#get"
+
+  user.list:
+    description: "List all users with optional ?email= filter (passwords stripped)"
+    handler: "src/user/user.list.handler.ts#listUsers"
+    contract: "src/user/user.contract.ts#ListUsersInput"
+    side_effects: []
+    dependencies: [src/_shared/db.ts]
+    tests: "src/user/user.test.ts#list"
+
+  user.update:
+    description: "Update user fields: email, name (not password)"
+    handler: "src/user/user.update.handler.ts#updateUser"
+    contract: "src/user/user.contract.ts#UpdateUserInput"
+    side_effects:
+      - writes: userStore
+        detail: "Merges updated fields into existing User record"
+    dependencies: [src/_shared/db.ts]
+    tests: "src/user/user.test.ts#update"
+
+  user.delete:
+    description: "Delete user account by ID"
+    handler: "src/user/user.delete.handler.ts#deleteUser"
+    contract: "src/user/user.contract.ts#DeleteUserInput"
+    side_effects:
+      - writes: userStore
+        detail: "Removes User record"
+      - missing: sessionStore
+        detail: "DOES NOT purge sessions — see INV-002"
+    dependencies: [src/_shared/db.ts]
+    tests: "src/user/user.test.ts#delete"
+    known_issues: ["INV-002: active sessions survive user deletion"]
+
+  auth.login:
+    description: "Validate credentials, create session, return token pair"
+    handler: "src/auth/auth.login.handler.ts#login"
+    contract: "src/auth/auth.contract.ts#LoginInput"
+    side_effects:
+      - writes: sessionStore
+        detail: "Creates new Session record with access + refresh tokens"
+    dependencies: [src/_shared/db.ts, user.get]
+    tests: "src/auth/auth.test.ts#login"
+
+  auth.logout:
+    description: "Invalidate current session token"
+    handler: "src/auth/auth.logout.handler.ts#logout"
+    contract: "src/auth/auth.contract.ts#LogoutInput"
+    side_effects:
+      - writes: sessionStore
+        detail: "Deletes Session record by token"
+    dependencies: [src/_shared/db.ts]
+    tests: "src/auth/auth.test.ts#logout"
+
+  auth.refresh:
+    description: "Rotate tokens — issue new access + refresh token pair"
+    handler: "src/auth/auth.refresh.handler.ts#refreshToken"
+    contract: "src/auth/auth.contract.ts#RefreshInput"
+    side_effects:
+      - writes: sessionStore
+        detail: "Invalidates old refresh token, writes new Session record"
+    dependencies: [src/_shared/db.ts]
+    tests: "src/auth/auth.test.ts#refresh"
+    notes: "Old refresh token is invalidated on success (rotation enforced)"

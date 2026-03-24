@@ -1,0 +1,147 @@
+# FILES.yaml — Complete Source File Index
+# Every source file is listed here. Use this instead of glob/grep to locate files.
+# After adding or significantly modifying a file, update its entry.
+# Format: path → { what, exports, reads_from, writes_to, routes, before_editing }
+
+version: "2.0"
+
+files:
+
+  # ── Entry Point ────────────────────────────────────────────────────────────
+
+  src/app.ts:
+    what: "Express app factory — mounts all routes and middleware"
+    exports: [app]
+    reads_from: []
+    writes_to: []
+    routes_registered:
+      - "POST   /users          → user.create.handler"
+      - "GET    /users          → user.list.handler"
+      - "GET    /users/:id      → user.get.handler"
+      - "PATCH  /users/:id      → user.update.handler"
+      - "DELETE /users/:id      → user.delete.handler"
+      - "POST   /auth/login     → auth.login.handler"
+      - "POST   /auth/logout    → auth.logout.handler"
+      - "POST   /auth/refresh   → auth.refresh.handler"
+    before_editing:
+      - "Adding a route? Also update .agent/ROUTES.yaml and .agent/MANIFEST.yaml"
+      - "Auth middleware is applied per-route — check INV-003 before adding unprotected routes"
+
+  # ── User Domain ────────────────────────────────────────────────────────────
+
+  src/user/user.contract.ts:
+    what: "TypeScript interfaces for all user operation inputs/outputs"
+    exports: [CreateUserInput, GetUserInput, UpdateUserInput, DeleteUserInput, ListUsersInput, User]
+    reads_from: []
+    writes_to: []
+    before_editing:
+      - "Changing a type here breaks every handler that imports it — run npm test immediately"
+      - "Never remove fields from User without checking all consumers in FILES.yaml"
+
+  src/user/user.create.handler.ts:
+    what: "Creates a new user with bcrypt-hashed password, stores in userStore"
+    exports: [createUser]
+    reads_from: [userStore]
+    writes_to: [userStore]
+    before_editing:
+      - "INV-001: password MUST be bcrypt-hashed before write — never store plaintext"
+      - "Email uniqueness check must happen before insert"
+      - "Tests: src/user/user.test.ts#create"
+
+  src/user/user.get.handler.ts:
+    what: "Retrieves a single user by ID from userStore"
+    exports: [getUser]
+    reads_from: [userStore]
+    writes_to: []
+    before_editing:
+      - "INV-001: never return the password field in the response"
+      - "Tests: src/user/user.test.ts#get"
+
+  src/user/user.list.handler.ts:
+    what: "Returns all users; supports optional ?email= filter"
+    exports: [listUsers]
+    reads_from: [userStore]
+    writes_to: []
+    before_editing:
+      - "INV-001: strip password field from every user in the list"
+      - "Tests: src/user/user.test.ts#list"
+
+  src/user/user.update.handler.ts:
+    what: "Updates allowed user fields (email, name); rejects password field"
+    exports: [updateUser]
+    reads_from: [userStore]
+    writes_to: [userStore]
+    before_editing:
+      - "Do NOT allow password updates here — password change is a separate capability"
+      - "Tests: src/user/user.test.ts#update"
+
+  src/user/user.delete.handler.ts:
+    what: "Deletes user by ID from userStore"
+    exports: [deleteUser]
+    reads_from: [userStore]
+    writes_to: [userStore]
+    known_issues:
+      - "INV-002: does NOT invalidate active sessions — this is a security bug"
+    before_editing:
+      - "INV-002: FIX REQUIRED — after deleting user, call sessionStore.deleteByUserId(userId)"
+      - "After fix, also update INVARIANTS.md to mark INV-002 as resolved"
+      - "Tests: src/user/user.test.ts#delete AND src/auth/auth.test.ts (post-delete session test)"
+
+  # ── Auth Domain ────────────────────────────────────────────────────────────
+
+  src/auth/auth.contract.ts:
+    what: "TypeScript interfaces for auth operation inputs/outputs"
+    exports: [LoginInput, LogoutInput, RefreshInput, Session, TokenPair]
+    reads_from: []
+    writes_to: []
+    before_editing:
+      - "Changing Session or TokenPair breaks authMiddleware and all auth handlers"
+
+  src/auth/auth.login.handler.ts:
+    what: "Validates credentials, creates session, returns token"
+    exports: [login]
+    reads_from: [userStore]
+    writes_to: [sessionStore]
+    before_editing:
+      - "Token format change → update auth.contract.ts AND authMiddleware.ts"
+      - "Tests: src/auth/auth.test.ts#login"
+
+  src/auth/auth.logout.handler.ts:
+    what: "Invalidates session by token"
+    exports: [logout]
+    reads_from: [sessionStore]
+    writes_to: [sessionStore]
+    before_editing:
+      - "Tests: src/auth/auth.test.ts#logout"
+
+  src/auth/auth.refresh.handler.ts:
+    what: "Issues a new token given a valid refresh token"
+    exports: [refreshToken]
+    reads_from: [sessionStore]
+    writes_to: [sessionStore]
+    before_editing:
+      - "Refresh token rotation: old token MUST be invalidated on successful refresh"
+      - "Tests: src/auth/auth.test.ts#refresh"
+
+  # ── Shared ─────────────────────────────────────────────────────────────────
+
+  src/_shared/db.ts:
+    what: "In-memory data stores (userStore, sessionStore) and helper functions"
+    exports: [userStore, sessionStore, generateId]
+    reads_from: []
+    writes_to: [userStore, sessionStore]
+    before_editing:
+      - "This is the single data layer — ALL handlers depend on it"
+      - "Changing store interfaces breaks every handler — check IMPACT_MAP.yaml first"
+      - "sessionStore must expose deleteByUserId(userId) for INV-002 fix"
+      - "Tests: all tests touch this indirectly — run npm test after any change"
+
+  src/_shared/authMiddleware.ts:
+    what: "Express middleware — validates session token from Authorization header"
+    exports: [authMiddleware]
+    reads_from: [sessionStore]
+    writes_to: []
+    before_editing:
+      - "INV-003: this is the single auth gate for all protected routes"
+      - "Token validation logic change → test all protected routes"
+      - "Tests: src/auth/auth.test.ts (unauthorized access cases)"

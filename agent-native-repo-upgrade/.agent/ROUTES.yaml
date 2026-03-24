@@ -1,0 +1,69 @@
+# ROUTES.yaml — Route → Handler Index
+# Use this to immediately locate the handler for any HTTP route.
+# Update when adding or removing routes.
+
+version: "2.0"
+
+routes:
+
+  "POST /users":
+    handler: "src/user/user.create.handler.ts#createUser"
+    auth_required: false
+    middleware: []
+    capability: "user.create"
+    tests: "src/user/user.test.ts#create"
+    notes: "Registration endpoint — intentionally public per INV-003"
+
+  "GET /users":
+    handler: "src/user/user.list.handler.ts#listUsers"
+    auth_required: true
+    middleware: [authMiddleware]
+    capability: "user.list"
+    tests: "src/user/user.test.ts#list"
+    query_params:
+      email: "optional filter — returns users matching exact email"
+
+  "GET /users/:id":
+    handler: "src/user/user.get.handler.ts#getUser"
+    auth_required: true
+    middleware: [authMiddleware]
+    capability: "user.get"
+    tests: "src/user/user.test.ts#get"
+
+  "PATCH /users/:id":
+    handler: "src/user/user.update.handler.ts#updateUser"
+    auth_required: true
+    middleware: [authMiddleware]
+    capability: "user.update"
+    tests: "src/user/user.test.ts#update"
+    notes: "Allowed fields: email, name. Password update is a separate endpoint."
+
+  "DELETE /users/:id":
+    handler: "src/user/user.delete.handler.ts#deleteUser"
+    auth_required: true
+    middleware: [authMiddleware]
+    capability: "user.delete"
+    tests: "src/user/user.test.ts#delete"
+    known_issues: ["INV-002: does not invalidate sessions"]
+
+  "POST /auth/login":
+    handler: "src/auth/auth.login.handler.ts#login"
+    auth_required: false
+    middleware: []
+    capability: "auth.login"
+    tests: "src/auth/auth.test.ts#login"
+
+  "POST /auth/logout":
+    handler: "src/auth/auth.logout.handler.ts#logout"
+    auth_required: true
+    middleware: [authMiddleware]
+    capability: "auth.logout"
+    tests: "src/auth/auth.test.ts#logout"
+
+  "POST /auth/refresh":
+    handler: "src/auth/auth.refresh.handler.ts#refreshToken"
+    auth_required: false
+    middleware: []
+    capability: "auth.refresh"
+    tests: "src/auth/auth.test.ts#refresh"
+    notes: "Accepts refresh token, rotates both access and refresh tokens"

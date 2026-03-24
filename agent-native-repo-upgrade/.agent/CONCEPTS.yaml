@@ -1,0 +1,93 @@
+# CONCEPTS.yaml — Semantic Concept → File Index
+# When you know WHAT you want to change but not WHERE it lives, look here.
+# Maps domain concepts and common task intents to the relevant files.
+# Update when adding new concepts or significantly restructuring domains.
+
+version: "2.0"
+
+concepts:
+
+  # ── Authentication & Sessions ───────────────────────────────────────────────
+
+  authentication:
+    description: "Login, logout, token issuance and validation"
+    primary_files:
+      - src/auth/auth.login.handler.ts
+      - src/auth/auth.logout.handler.ts
+      - src/auth/auth.refresh.handler.ts
+    contracts: src/auth/auth.contract.ts
+    middleware: src/_shared/authMiddleware.ts
+    data_store: "sessionStore in src/_shared/db.ts"
+    invariants: [INV-001, INV-003]
+
+  session_management:
+    description: "Session lifecycle: creation, validation, expiry, invalidation"
+    primary_files:
+      - src/_shared/db.ts           # sessionStore lives here
+      - src/auth/auth.login.handler.ts    # creates sessions
+      - src/auth/auth.logout.handler.ts   # invalidates sessions
+      - src/auth/auth.refresh.handler.ts  # rotates sessions
+      - src/user/user.delete.handler.ts   # SHOULD invalidate but doesn't (INV-002)
+    known_issues: ["INV-002: user deletion does not purge sessions"]
+    invariants: [INV-002, INV-003]
+
+  token_validation:
+    description: "How incoming requests are authenticated"
+    primary_files:
+      - src/_shared/authMiddleware.ts
+    reads_from: "sessionStore in src/_shared/db.ts"
+    invariants: [INV-003]
+
+  # ── User Management ─────────────────────────────────────────────────────────
+
+  user_lifecycle:
+    description: "Full CRUD for user accounts"
+    primary_files:
+      - src/user/user.create.handler.ts
+      - src/user/user.get.handler.ts
+      - src/user/user.list.handler.ts
+      - src/user/user.update.handler.ts
+      - src/user/user.delete.handler.ts
+    contracts: src/user/user.contract.ts
+    data_store: "userStore in src/_shared/db.ts"
+    invariants: [INV-001, INV-002]
+
+  password_security:
+    description: "Password hashing, storage, and update rules"
+    primary_files:
+      - src/user/user.create.handler.ts   # bcrypt hash on create
+    invariants: [INV-001]
+    notes: "bcrypt saltRounds >= 10 required. Password NEVER returned in responses."
+
+  # ── Data Layer ───────────────────────────────────────────────────────────────
+
+  data_stores:
+    description: "In-memory persistence layer"
+    primary_files:
+      - src/_shared/db.ts
+    stores:
+      userStore: "Map<string, User> — keyed by userId"
+      sessionStore: "Map<string, Session> — keyed by token"
+    notes: >
+      No external database. Stores reset on process restart.
+      sessionStore needs a deleteByUserId(userId) method for INV-002 fix.
+
+  # ── Cross-Cutting ────────────────────────────────────────────────────────────
+
+  input_validation:
+    description: "Request body validation and sanitization"
+    primary_files: []
+    status: "NOT IMPLEMENTED — Task C in experiments failed (0% pass rate both repos)"
+    notes: "If implementing, add as Express middleware before route handlers in src/app.ts"
+
+  request_logging:
+    description: "Per-request logging middleware"
+    primary_files: []
+    status: "Implemented in some experiment runs — check CHANGELOG.agent.yaml"
+    notes: "If adding, mount globally in src/app.ts before route registration"
+
+  error_handling:
+    description: "HTTP error response format"
+    primary_files:
+      - src/app.ts   # error handler middleware at bottom
+    notes: "All handlers return { error: string } on failure with appropriate HTTP status"

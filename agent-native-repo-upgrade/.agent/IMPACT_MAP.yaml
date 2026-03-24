@@ -1,0 +1,92 @@
+# IMPACT_MAP.yaml — Cross-File Impact Graph
+# Before editing a file, look it up here to understand blast radius.
+# "affects" = changing this file WILL require changes to these files too
+# "notify_tests" = run these test suites after any change
+
+version: "2.0"
+
+impact_map:
+
+  "src/_shared/db.ts":
+    description: "Central data layer — everything depends on it"
+    affects:
+      - ALL handlers (direct import)
+      - src/_shared/authMiddleware.ts (reads sessionStore)
+    safe_to_change:
+      - "Internal implementation details if exported interface is preserved"
+      - "Helper function internals"
+    breaks_if_changed:
+      - "userStore or sessionStore exported interface"
+      - "generateId() output format (affects stored IDs)"
+      - "Session or User object shape"
+    missing_method_needed:
+      - "sessionStore.deleteByUserId(userId) — required for INV-002 fix"
+    notify_tests: ["src/user/user.test.ts", "src/auth/auth.test.ts"]
+
+  "src/_shared/authMiddleware.ts":
+    description: "Auth gate for all protected routes"
+    affects:
+      - All routes registered with authMiddleware in src/app.ts
+    safe_to_change:
+      - "Error message text"
+      - "Logging verbosity"
+    breaks_if_changed:
+      - "Token extraction logic (Authorization header format)"
+      - "Session lookup key"
+      - "req.userId injection (handlers depend on this)"
+    notify_tests: ["src/auth/auth.test.ts", "src/user/user.test.ts"]
+
+  "src/user/user.contract.ts":
+    description: "Type contracts for all user operations"
+    affects:
+      - src/user/user.create.handler.ts
+      - src/user/user.get.handler.ts
+      - src/user/user.list.handler.ts
+      - src/user/user.update.handler.ts
+      - src/user/user.delete.handler.ts
+    safe_to_change:
+      - "Adding optional fields (non-breaking)"
+    breaks_if_changed:
+      - "Removing or renaming required fields"
+      - "Changing User.id type"
+    notify_tests: ["src/user/user.test.ts"]
+
+  "src/auth/auth.contract.ts":
+    description: "Type contracts for all auth operations"
+    affects:
+      - src/auth/auth.login.handler.ts
+      - src/auth/auth.logout.handler.ts
+      - src/auth/auth.refresh.handler.ts
+      - src/_shared/authMiddleware.ts
+    safe_to_change:
+      - "Adding optional fields"
+    breaks_if_changed:
+      - "Session token field names"
+      - "TokenPair structure"
+    notify_tests: ["src/auth/auth.test.ts"]
+
+  "src/user/user.delete.handler.ts":
+    description: "Deletes users — currently has INV-002 violation"
+    affects:
+      - src/_shared/db.ts  # needs deleteByUserId added
+      - src/auth/auth.test.ts  # needs post-delete session test
+    safe_to_change:
+      - "Error messages"
+      - "HTTP status codes for error cases"
+    breaks_if_changed:
+      - "userId resolution logic"
+    known_fix_required:
+      - "Add sessionStore.deleteByUserId(userId) call — see INV-002"
+    notify_tests: ["src/user/user.test.ts#delete", "src/auth/auth.test.ts"]
+
+  "src/app.ts":
+    description: "Route registration and middleware mounting"
+    affects:
+      - All routes (adding/removing routes here changes the API surface)
+    safe_to_change:
+      - "Route ordering (Express matches first-to-last)"
+      - "Global middleware order"
+    breaks_if_changed:
+      - "Auth middleware removal from protected routes (violates INV-003)"
+      - "Route path changes (breaking API change)"
+    notify_tests: ["src/user/user.test.ts", "src/auth/auth.test.ts"]

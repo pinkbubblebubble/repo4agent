@@ -1,0 +1,32 @@
+# CHANGELOG.agent.yaml — Agent Operation Log
+# Append an entry after every task. See COMMIT_PROTOCOL.md for format.
+# Purpose: let the next agent know what changed recently without reading git log.
+
+version: "2.0"
+
+entries:
+
+  - date: "2026-03-24"
+    task: "Initial agent-native-v2 metadata layer created"
+    files_modified: []
+    files_created:
+      - AGENT.md
+      - .agent/FILES.yaml
+      - .agent/ROUTES.yaml
+      - .agent/CONCEPTS.yaml
+      - .agent/MANIFEST.yaml
+      - .agent/INVARIANTS.md
+      - .agent/IMPACT_MAP.yaml
+      - .agent/COMMIT_PROTOCOL.md
+      - .agent/CHANGELOG.agent.yaml
+    capabilities_added: []
+    capabilities_modified: []
+    invariants_resolved: []
+    invariants_introduced: [INV-001, INV-002, INV-003]
+    metadata_updated: [all — initial creation]
+    notes: >
+      This is the v2 agent-native design. Key additions over v1:
+      FILES.yaml (per-file index with before_editing guards),
+      ROUTES.yaml (route→handler lookup table),
+      CONCEPTS.yaml (semantic search index),
+      COMMIT_PROTOCOL.md (post-task metadata update protocol).
