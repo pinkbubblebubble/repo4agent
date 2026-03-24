@@ -5,16 +5,6 @@ description: Transform any repository into an agent-native structure. Generates 
 
 You are executing the `/init-agent-repo` skill. Your job is to analyze the current repository and generate an **agent-native metadata layer** — a set of structured files that dramatically improve AI agent performance on this codebase.
 
-## Background
-
-Research across 80 experiment runs (4 conditions, 10 tasks) showed that agent-native repos achieve **+30pp higher task success rates** vs traditional repos (55% → 85%). The mechanism: agents in traditional repos "prematurely commit" (start editing after reading only 4–7 files). Agent-native metadata forces upfront context-building, converting unknown unknowns into known unknowns before any edits are made.
-
-An ablation study identified the optimal set: 5 files. Adding more files beyond this caused agents to skim instead of read, producing regressions. The key additions over a minimal baseline were `TEST_CONTRACTS.yaml` (prevents over-engineering by giving the agent the exact test assertions before writing code) and step-by-step fix ordering in `INVARIANTS.md` (prevents agents from calling methods that don't exist yet).
-
-The five files you will generate are the core of this system.
-
----
-
 ## Phase 1: Explore the Repository
 
 Before generating anything, build a complete mental model of the codebase. Read in this order:
