@@ -1,32 +1,6 @@
 {
-  "generated_at": "2026-03-23T23:02:11.214330",
-  "total_runs": 60,
-  "experiment_config": {
-    "model": "claude-haiku-4-5-20251001",
-    "tools_disallowed": [
-      "Bash"
-    ],
-    "tools_measured": [
-      "Read",
-      "Glob",
-      "Grep",
-      "Write",
-      "Edit"
-    ],
-    "runs_per_task": 2,
-    "tasks": [
-      "Add Feature: PATCH /users/:id/email",
-      "Fix Bug: Sessions not invalidated on delete",
-      "Add Middleware: Input validation on POST /users",
-      "Add Feature: GET /users list all users",
-      "Add Feature: PATCH /users/:id/password",
-      "Fix Bug: Sessions never expire",
-      "Add Feature: GET /users with email search",
-      "Add Feature: POST /auth/refresh session token",
-      "Add Middleware: Request logging",
-      "Add Feature: DELETE /users/:id soft delete"
-    ]
-  },
+  "generated_at": "2026-03-23T23:26:32.549382",
+  "total_runs": 80,
   "overall": {
     "traditional": {
       "n": 20,
@@ -70,20 +44,19 @@
       "test_pass_rate_pct": 80.0,
       "completion_rate_pct": 100.0
     },
-    "v1_vs_trad": {
-      "tool_call_change_pct": -55.6,
-      "explore_call_change_pct": -63.1,
-      "token_change_pct": -58.7,
-      "success_rate_diff_pp": 25.0
-    },
-    "v2_vs_trad": {
-      "tool_call_change_pct": -100.0,
-      "explore_call_change_pct": -115.4,
-      "token_change_pct": -81.2,
-      "success_rate_diff_pp": 25.0
-    },
-    "v2_vs_v1": {
-      "success_rate_diff_pp": 0.0
+    "agent_native_v3": {
+      "n": 20,
+      "avg_total_calls": 14.7,
+      "avg_explore_calls": 11.3,
+      "avg_read": 9.2,
+      "avg_glob": 1.9,
+      "avg_grep": 0.1,
+      "avg_write": 0.6,
+      "avg_edit": 2.8,
+      "avg_tokens": 293141,
+      "avg_cost_usd": 0.0755,
+      "test_pass_rate_pct": 85.0,
+      "completion_rate_pct": 100.0
     }
   },
   "task_comparisons": [
@@ -132,9 +105,23 @@
         "test_pass_rate_pct": 100.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": 50.0,
-      "v2_success_diff": 50.0,
-      "v2_vs_v1_diff": 0.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 13.5,
+        "avg_explore_calls": 9.0,
+        "avg_read": 8.0,
+        "avg_glob": 1.0,
+        "avg_grep": 0.0,
+        "avg_write": 1.0,
+        "avg_edit": 3.5,
+        "avg_tokens": 350989,
+        "avg_cost_usd": 0.0842,
+        "test_pass_rate_pct": 100.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": 50.0,
+      "v2_pp": 50.0,
+      "v3_pp": 50.0
     },
     {
       "task_id": "task-b",
@@ -181,9 +168,23 @@
         "test_pass_rate_pct": 50.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": 50.0,
-      "v2_success_diff": 0.0,
-      "v2_vs_v1_diff": -50.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 7.0,
+        "avg_explore_calls": 6.0,
+        "avg_read": 5.0,
+        "avg_glob": 1.0,
+        "avg_grep": 0.0,
+        "avg_write": 0.0,
+        "avg_edit": 1.0,
+        "avg_tokens": 160011,
+        "avg_cost_usd": 0.039,
+        "test_pass_rate_pct": 100.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": 50.0,
+      "v2_pp": 0.0,
+      "v3_pp": 50.0
     },
     {
       "task_id": "task-c",
@@ -230,9 +231,23 @@
         "test_pass_rate_pct": 0.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": 0.0,
-      "v2_success_diff": 0.0,
-      "v2_vs_v1_diff": 0.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 7.0,
+        "avg_explore_calls": 5.5,
+        "avg_read": 4.5,
+        "avg_glob": 1.0,
+        "avg_grep": 0.0,
+        "avg_write": 0.0,
+        "avg_edit": 1.5,
+        "avg_tokens": 175086,
+        "avg_cost_usd": 0.0417,
+        "test_pass_rate_pct": 0.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": 0.0,
+      "v2_pp": 0.0,
+      "v3_pp": 0.0
     },
     {
       "task_id": "task-d",
@@ -279,9 +294,23 @@
         "test_pass_rate_pct": 100.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": 0.0,
-      "v2_success_diff": 0.0,
-      "v2_vs_v1_diff": 0.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 12.5,
+        "avg_explore_calls": 9.5,
+        "avg_read": 8.5,
+        "avg_glob": 1.0,
+        "avg_grep": 0.0,
+        "avg_write": 1.0,
+        "avg_edit": 2.0,
+        "avg_tokens": 297868,
+        "avg_cost_usd": 0.0646,
+        "test_pass_rate_pct": 100.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": 0.0,
+      "v2_pp": 0.0,
+      "v3_pp": 0.0
     },
     {
       "task_id": "task-e",
@@ -328,9 +357,23 @@
         "test_pass_rate_pct": 100.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": -50.0,
-      "v2_success_diff": 0.0,
-      "v2_vs_v1_diff": 50.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 16.0,
+        "avg_explore_calls": 11.5,
+        "avg_read": 9.5,
+        "avg_glob": 2.0,
+        "avg_grep": 0.0,
+        "avg_write": 1.0,
+        "avg_edit": 3.5,
+        "avg_tokens": 320120,
+        "avg_cost_usd": 0.0843,
+        "test_pass_rate_pct": 100.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": -50.0,
+      "v2_pp": 0.0,
+      "v3_pp": 0.0
     },
     {
       "task_id": "task-f",
@@ -377,9 +420,23 @@
         "test_pass_rate_pct": 100.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": 0.0,
-      "v2_success_diff": 0.0,
-      "v2_vs_v1_diff": 0.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 9.0,
+        "avg_explore_calls": 8.0,
+        "avg_read": 7.0,
+        "avg_glob": 1.0,
+        "avg_grep": 0.0,
+        "avg_write": 0.0,
+        "avg_edit": 1.0,
+        "avg_tokens": 225946,
+        "avg_cost_usd": 0.0507,
+        "test_pass_rate_pct": 100.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": 0.0,
+      "v2_pp": 0.0,
+      "v3_pp": 0.0
     },
     {
       "task_id": "task-g",
@@ -426,9 +483,23 @@
         "test_pass_rate_pct": 100.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": -50.0,
-      "v2_success_diff": 0.0,
-      "v2_vs_v1_diff": 50.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 17.0,
+        "avg_explore_calls": 12.0,
+        "avg_read": 10.5,
+        "avg_glob": 1.5,
+        "avg_grep": 0.0,
+        "avg_write": 1.0,
+        "avg_edit": 4.0,
+        "avg_tokens": 373014,
+        "avg_cost_usd": 0.0786,
+        "test_pass_rate_pct": 100.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": -50.0,
+      "v2_pp": 0.0,
+      "v3_pp": 0.0
     },
     {
       "task_id": "task-h",
@@ -475,9 +546,23 @@
         "test_pass_rate_pct": 50.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": 100.0,
-      "v2_success_diff": 50.0,
-      "v2_vs_v1_diff": -50.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 16.5,
+        "avg_explore_calls": 11.5,
+        "avg_read": 10.5,
+        "avg_glob": 1.0,
+        "avg_grep": 0.0,
+        "avg_write": 1.0,
+        "avg_edit": 4.0,
+        "avg_tokens": 320604,
+        "avg_cost_usd": 0.0738,
+        "test_pass_rate_pct": 100.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": 100.0,
+      "v2_pp": 50.0,
+      "v3_pp": 100.0
     },
     {
       "task_id": "task-i",
@@ -524,9 +609,23 @@
         "test_pass_rate_pct": 100.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": 50.0,
-      "v2_success_diff": 50.0,
-      "v2_vs_v1_diff": 0.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 6.0,
+        "avg_explore_calls": 4.0,
+        "avg_read": 2.5,
+        "avg_glob": 1.5,
+        "avg_grep": 0.0,
+        "avg_write": 1.0,
+        "avg_edit": 1.0,
+        "avg_tokens": 158934,
+        "avg_cost_usd": 0.0398,
+        "test_pass_rate_pct": 50.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": 50.0,
+      "v2_pp": 50.0,
+      "v3_pp": 0.0
     },
     {
       "task_id": "task-j",
@@ -573,9 +672,23 @@
         "test_pass_rate_pct": 100.0,
         "completion_rate_pct": 100.0
       },
-      "v1_success_diff": 100.0,
-      "v2_success_diff": 100.0,
-      "v2_vs_v1_diff": 0.0
+      "agent_native_v3": {
+        "n": 2,
+        "avg_total_calls": 42.0,
+        "avg_explore_calls": 36.0,
+        "avg_read": 26.5,
+        "avg_glob": 8.0,
+        "avg_grep": 1.5,
+        "avg_write": 0.0,
+        "avg_edit": 6.0,
+        "avg_tokens": 548838,
+        "avg_cost_usd": 0.1984,
+        "test_pass_rate_pct": 100.0,
+        "completion_rate_pct": 100.0
+      },
+      "v1_pp": 100.0,
+      "v2_pp": 100.0,
+      "v3_pp": 100.0
     }
   ]
 }

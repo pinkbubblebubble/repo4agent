@@ -1,0 +1,30 @@
+impact_map:
+  "src/_shared/db.ts":
+    affects: ["ALL modules - this is the data layer"]
+    safe_to_change: ["internal implementation if interface preserved"]
+    breaks_if_changed: ["store interface", "exported function signatures"]
+    notify_tests: ["src/user/user.test.ts", "src/auth/auth.test.ts"]
+
+  "src/user/user.create.handler.ts":
+    affects: ["user_store"]
+    safe_to_change: ["validation logic", "error messages"]
+    breaks_if_changed: ["response format", "password hashing"]
+    notify_tests: ["src/user/user.test.ts#create"]
+
+  "src/user/user.delete.handler.ts":
+    affects: ["user_store"]
+    safe_to_change: ["error messages"]
+    breaks_if_changed: ["does not currently affect session_store - KNOWN BUG INV-002"]
+    notify_tests: ["src/user/user.test.ts#delete", "src/auth/auth.test.ts"]
+
+  "src/auth/auth.login.handler.ts":
+    affects: ["session_store", "reads user_store"]
+    safe_to_change: ["token expiry duration", "error messages"]
+    breaks_if_changed: ["token format", "session structure"]
+    notify_tests: ["src/auth/auth.test.ts#login"]
+
+  "src/auth/auth.logout.handler.ts":
+    affects: ["session_store"]
+    safe_to_change: ["error messages"]
+    breaks_if_changed: ["session deletion logic"]
+    notify_tests: ["src/auth/auth.test.ts#logout"]

@@ -1,0 +1,82 @@
+# TEST_CONTRACTS.yaml
+# Exact assertions for every capability. Read this before writing code.
+# Knowing what the test expects lets you get it right on the first attempt.
+
+version: "3.0"
+
+contracts:
+
+  user.create:
+    success:
+      status: 201
+      body: { id: string, email: string, name: string }
+      body_absent: [password]
+      side_effect: "userStore.size += 1, stored password is hashed (not plaintext)"
+    failure:
+      duplicate_email: { status: 409, body: { error: string } }
+      missing_fields:  { status: 400, body: { error: string } }
+
+  user.get:
+    success:
+      status: 200
+      body: { id: string, email: string, name: string }
+      body_absent: [password]
+    failure:
+      not_found:    { status: 404 }
+      unauthorized: { status: 401 }
+
+  user.list:
+    success:
+      status: 200
+      body: "array of users, each without password field"
+    with_email_filter:
+      path: "/users?email=x"
+      body: "array of matching users ([] if none — not 404)"
+    failure:
+      unauthorized: { status: 401 }
+
+  user.update:
+    success:
+      status: 200
+      body: { id: string, email: string }
+      body_absent: [password]
+    failure:
+      not_found:       { status: 404 }
+      unauthorized:    { status: 401 }
+      patch_password:  { status: 400, note: "password changes rejected at this endpoint" }
+
+  user.delete:
+    success:
+      status: 204
+      body: null
+      side_effect: "user gone from userStore AND all sessions for that userId deleted"
+    post_delete_check: "old token for deleted user must return 401 on next request"
+    failure:
+      not_found:    { status: 404 }
+      unauthorized: { status: 401 }
+
+  auth.login:
+    success:
+      status: 200
+      body: { token: string, refreshToken: string }
+      side_effect: "new session in sessionStore"
+    failure:
+      wrong_password: { status: 401, note: "same response as user-not-found (no enumeration)" }
+      user_not_found: { status: 401 }
+
+  auth.logout:
+    success:
+      status: 204
+      body: null
+      side_effect: "session deleted — same token returns 401 on next request"
+    failure:
+      unauthorized: { status: 401 }
+
+  auth.refresh:
+    success:
+      status: 200
+      body: { token: string, refreshToken: string }
+      side_effect: "old token invalidated, new session created (net sessionStore.size unchanged)"
+    rotation_check: "old refreshToken must return 401 after successful refresh"
+    failure:
+      invalid_token: { status: 401 }

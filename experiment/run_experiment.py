@@ -127,8 +127,8 @@ TASKS = [
     },
 ]
 
-# For v2 experiment: only run the new v2 repo (traditional + v1 results already in raw_results.jsonl)
-REPOS = ["agent-native-v2"]
+# For v3 experiment: only run the new v3 repo
+REPOS = ["agent-native-v3"]
 RUNS_PER_TASK = 2
 
 

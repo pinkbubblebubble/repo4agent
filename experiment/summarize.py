@@ -48,151 +48,109 @@ def metrics(rs):
         return {}
     return {
         "n": len(rs),
-        "avg_total_calls": round(avg([r["total"] for r in rs]), 1),
+        "avg_total_calls":   round(avg([r["total"] for r in rs]), 1),
         "avg_explore_calls": round(avg([r["exploration"] for r in rs]), 1),
-        "avg_read": round(avg([r["read"] for r in rs]), 1),
-        "avg_glob": round(avg([r["glob"] for r in rs]), 1),
-        "avg_grep": round(avg([r["grep"] for r in rs]), 1),
-        "avg_write": round(avg([r["write"] for r in rs]), 1),
-        "avg_edit": round(avg([r["edit"] for r in rs]), 1),
-        "avg_tokens": round(avg([r["total_tokens"] for r in rs])),
-        "avg_cost_usd": round(avg([r["cost_usd"] for r in rs]), 4),
-        "test_pass_rate_pct": round(avg([1 if r["tests_passed"] else 0 for r in rs]) * 100, 1),
-        "completion_rate_pct": round(avg([1 if r["completed"] else 0 for r in rs]) * 100, 1),
+        "avg_read":          round(avg([r["read"] for r in rs]), 1),
+        "avg_glob":          round(avg([r["glob"] for r in rs]), 1),
+        "avg_grep":          round(avg([r["grep"] for r in rs]), 1),
+        "avg_write":         round(avg([r["write"] for r in rs]), 1),
+        "avg_edit":          round(avg([r["edit"] for r in rs]), 1),
+        "avg_tokens":        round(avg([r["total_tokens"] for r in rs])),
+        "avg_cost_usd":      round(avg([r["cost_usd"] for r in rs]), 4),
+        "test_pass_rate_pct":   round(avg([1 if r["tests_passed"] else 0 for r in rs]) * 100, 1),
+        "completion_rate_pct":  round(avg([1 if r["completed"] else 0 for r in rs]) * 100, 1),
     }
 
-def pct_change(old, new):
-    if old == 0:
-        return 0.0
-    return round((old - new) / old * 100, 1)
+def pp(old, new):
+    return round(new - old, 1) if (old is not None and new is not None) else None
 
-all_trad   = [r for r in runs if r["repo_type"] == "traditional"]
-all_native = [r for r in runs if r["repo_type"] == "agent-native"]
-all_v2     = [r for r in runs if r["repo_type"] == "agent-native-v2"]
+all_trad = [r for r in runs if r["repo_type"] == "traditional"]
+all_v1   = [r for r in runs if r["repo_type"] == "agent-native"]
+all_v2   = [r for r in runs if r["repo_type"] == "agent-native-v2"]
+all_v3   = [r for r in runs if r["repo_type"] == "agent-native-v3"]
 
-tm_all = metrics(all_trad)
-nm_all = metrics(all_native)
-v2_all = metrics(all_v2)
-
-tool_red_v1   = pct_change(tm_all.get("avg_total_calls", 0), nm_all.get("avg_total_calls", 0))
-tool_red_v2   = pct_change(tm_all.get("avg_total_calls", 0), v2_all.get("avg_total_calls", 0))
-explore_red_v1 = pct_change(tm_all.get("avg_explore_calls", 0), nm_all.get("avg_explore_calls", 0))
-explore_red_v2 = pct_change(tm_all.get("avg_explore_calls", 0), v2_all.get("avg_explore_calls", 0))
-token_red_v1  = pct_change(tm_all.get("avg_tokens", 0), nm_all.get("avg_tokens", 0))
-token_red_v2  = pct_change(tm_all.get("avg_tokens", 0), v2_all.get("avg_tokens", 0))
-success_v1    = round(nm_all.get("test_pass_rate_pct", 0) - tm_all.get("test_pass_rate_pct", 0), 1)
-success_v2    = round(v2_all.get("test_pass_rate_pct", 0) - tm_all.get("test_pass_rate_pct", 0), 1)
-v1_vs_v2      = round(v2_all.get("test_pass_rate_pct", 0) - nm_all.get("test_pass_rate_pct", 0), 1)
+tm = metrics(all_trad)
+v1 = metrics(all_v1)
+v2 = metrics(all_v2)
+v3 = metrics(all_v3)
 
 comparisons = []
 for tid in task_ids:
-    trad   = groups.get((tid, "traditional"), [])
-    native = groups.get((tid, "agent-native"), [])
-    v2     = groups.get((tid, "agent-native-v2"), [])
-    if not trad:
-        continue
-    tm = metrics(trad)
-    nm = metrics(native) if native else {}
-    v2m = metrics(v2) if v2 else {}
+    trad = groups.get((tid, "traditional"), [])
+    n1   = groups.get((tid, "agent-native"), [])
+    n2   = groups.get((tid, "agent-native-v2"), [])
+    n3   = groups.get((tid, "agent-native-v3"), [])
+    tm_t = metrics(trad)
+    v1_t = metrics(n1)
+    v2_t = metrics(n2)
+    v3_t = metrics(n3)
+    base = tm_t.get("test_pass_rate_pct")
     comparisons.append({
-        "task_id": tid,
+        "task_id":   tid,
         "task_name": task_names.get(tid, tid),
-        "traditional": tm,
-        "agent_native_v1": nm,
-        "agent_native_v2": v2m,
-        "v1_success_diff": round(nm.get("test_pass_rate_pct", 0) - tm.get("test_pass_rate_pct", 0), 1) if nm else None,
-        "v2_success_diff": round(v2m.get("test_pass_rate_pct", 0) - tm.get("test_pass_rate_pct", 0), 1) if v2m else None,
-        "v2_vs_v1_diff":   round(v2m.get("test_pass_rate_pct", 0) - nm.get("test_pass_rate_pct", 0), 1) if (nm and v2m) else None,
+        "traditional":      tm_t,
+        "agent_native_v1":  v1_t,
+        "agent_native_v2":  v2_t,
+        "agent_native_v3":  v3_t,
+        "v1_pp": pp(base, v1_t.get("test_pass_rate_pct")) if v1_t else None,
+        "v2_pp": pp(base, v2_t.get("test_pass_rate_pct")) if v2_t else None,
+        "v3_pp": pp(base, v3_t.get("test_pass_rate_pct")) if v3_t else None,
     })
 
 summary = {
     "generated_at": datetime.datetime.now().isoformat(),
     "total_runs": len(runs),
-    "experiment_config": {
-        "model": "claude-haiku-4-5-20251001",
-        "tools_disallowed": ["Bash"],
-        "tools_measured": ["Read", "Glob", "Grep", "Write", "Edit"],
-        "runs_per_task": 2,
-        "tasks": list(task_names.values()),
-    },
     "overall": {
-        "traditional":      tm_all,
-        "agent_native_v1":  nm_all,
-        "agent_native_v2":  v2_all,
-        "v1_vs_trad": {
-            "tool_call_change_pct":   tool_red_v1,
-            "explore_call_change_pct": explore_red_v1,
-            "token_change_pct":        token_red_v1,
-            "success_rate_diff_pp":    success_v1,
-        },
-        "v2_vs_trad": {
-            "tool_call_change_pct":   tool_red_v2,
-            "explore_call_change_pct": explore_red_v2,
-            "token_change_pct":        token_red_v2,
-            "success_rate_diff_pp":    success_v2,
-        },
-        "v2_vs_v1": {
-            "success_rate_diff_pp": v1_vs_v2,
-        },
+        "traditional":     tm,
+        "agent_native_v1": v1,
+        "agent_native_v2": v2,
+        "agent_native_v3": v3,
     },
     "task_comparisons": comparisons,
 }
-
 (RESULTS_DIR / "summary.json").write_text(json.dumps(summary, indent=2))
 
 # ── Print ──────────────────────────────────────────────────────────────────────
-W = 80
+W = 90
 print("=" * W)
-print("EXPERIMENT RESULTS — Traditional vs Agent-Native v1 vs Agent-Native v2")
+print("EXPERIMENT RESULTS — Traditional / V1 / V2 / V3")
 print("=" * W)
 print(f"Total runs: {len(runs)}  "
-      f"({len(all_trad)} trad / {len(all_native)} v1 / {len(all_v2)} v2)\n")
+      f"({len(all_trad)} trad / {len(all_v1)} v1 / {len(all_v2)} v2 / {len(all_v3)} v3)\n")
 
-def row(label, tv, v1, v2, d1=None, d2=None):
-    d1s = f"{d1:+.1f}%" if d1 is not None else "  n/a  "
-    d2s = f"{d2:+.1f}%" if d2 is not None else "  n/a  "
-    print(f"  {label:<26} {str(tv):>10} {str(v1):>12} {str(v2):>12} {d1s:>9} {d2s:>9}")
+def row(label, tv, v1v, v2v, v3v):
+    print(f"  {label:<26} {str(tv):>10} {str(v1v):>10} {str(v2v):>10} {str(v3v):>10}")
 
-print(f"  {'Metric':<26} {'Trad':>10} {'V1 native':>12} {'V2 native':>12} {'v1 Δ':>9} {'v2 Δ':>9}")
-print("  " + "-" * 78)
-row("Total tool calls",
-    tm_all.get("avg_total_calls","?"), nm_all.get("avg_total_calls","?"), v2_all.get("avg_total_calls","?"),
-    -tool_red_v1 if tool_red_v1 else None, -tool_red_v2 if tool_red_v2 else None)
-row("Exploration calls",
-    tm_all.get("avg_explore_calls","?"), nm_all.get("avg_explore_calls","?"), v2_all.get("avg_explore_calls","?"),
-    -explore_red_v1 if explore_red_v1 else None, -explore_red_v2 if explore_red_v2 else None)
-row("  Read",
-    tm_all.get("avg_read","?"), nm_all.get("avg_read","?"), v2_all.get("avg_read","?"))
-row("  Glob",
-    tm_all.get("avg_glob","?"), nm_all.get("avg_glob","?"), v2_all.get("avg_glob","?"))
-row("  Grep",
-    tm_all.get("avg_grep","?"), nm_all.get("avg_grep","?"), v2_all.get("avg_grep","?"))
-row("Tokens consumed",
-    tm_all.get("avg_tokens","?"), nm_all.get("avg_tokens","?"), v2_all.get("avg_tokens","?"),
-    -token_red_v1 if token_red_v1 else None, -token_red_v2 if token_red_v2 else None)
+print(f"  {'Metric':<26} {'Trad':>10} {'V1':>10} {'V2':>10} {'V3':>10}")
+print("  " + "-" * 68)
+row("Avg explore calls",  tm.get("avg_explore_calls","?"), v1.get("avg_explore_calls","?"), v2.get("avg_explore_calls","?"), v3.get("avg_explore_calls","?"))
+row("  Read",             tm.get("avg_read","?"), v1.get("avg_read","?"), v2.get("avg_read","?"), v3.get("avg_read","?"))
+row("Avg tokens",         tm.get("avg_tokens","?"), v1.get("avg_tokens","?"), v2.get("avg_tokens","?"), v3.get("avg_tokens","?"))
 row("Test pass rate",
-    f"{tm_all.get('test_pass_rate_pct','?')}%",
-    f"{nm_all.get('test_pass_rate_pct','?')}%",
-    f"{v2_all.get('test_pass_rate_pct','?')}%",
-    success_v1 if success_v1 else None,
-    success_v2 if success_v2 else None)
+    f"{tm.get('test_pass_rate_pct','?')}%",
+    f"{v1.get('test_pass_rate_pct','?')}%",
+    f"{v2.get('test_pass_rate_pct','?')}%",
+    f"{v3.get('test_pass_rate_pct','?')}%")
 
-print(f"\n  v2 vs v1 pass rate: {v1_vs_v2:+.1f}pp")
+trad_rate = tm.get("test_pass_rate_pct", 0)
+print(f"\n  vs Traditional:   V1={pp(trad_rate, v1.get('test_pass_rate_pct',0)):+.1f}pp  "
+      f"V2={pp(trad_rate, v2.get('test_pass_rate_pct',0)):+.1f}pp  "
+      f"V3={pp(trad_rate, v3.get('test_pass_rate_pct',0)):+.1f}pp")
+if v1.get('test_pass_rate_pct') is not None:
+    print(f"  V3 vs V1:         {pp(v1.get('test_pass_rate_pct',0), v3.get('test_pass_rate_pct',0)):+.1f}pp")
 
 print("\nPER-TASK BREAKDOWN:")
 for c in comparisons:
     t  = c["traditional"]
-    v1 = c["agent_native_v1"]
-    v2 = c["agent_native_v2"]
-    v1_pp = f"{c['v1_success_diff']:+.0f}pp" if c["v1_success_diff"] is not None else "n/a"
-    v2_pp = f"{c['v2_success_diff']:+.0f}pp" if c["v2_success_diff"] is not None else "n/a"
-    vv_pp = f"{c['v2_vs_v1_diff']:+.0f}pp" if c["v2_vs_v1_diff"] is not None else "n/a"
+    n1 = c["agent_native_v1"]
+    n2 = c["agent_native_v2"]
+    n3 = c["agent_native_v3"]
+    def r(m): return f"{m.get('test_pass_rate_pct','?')}%" if m else "n/a"
+    def d(v): return f"{v:+.0f}pp" if v is not None else "n/a"
     print(f"\n  {c['task_name']}")
-    t_rate  = f"{t.get('test_pass_rate_pct','?')}%"
-    v1_rate = f"{v1.get('test_pass_rate_pct','?')}%" if v1 else "n/a"
-    v2_rate = f"{v2.get('test_pass_rate_pct','?')}%" if v2 else "n/a"
-    print(f"    Tests:    Trad={t_rate:<6} V1={v1_rate:<6} V2={v2_rate:<6}  (v1Δ={v1_pp}, v2Δ={v2_pp}, v2vsV1={vv_pp})")
-    if v1 and v2:
-        print(f"    Explore:  Trad={t.get('avg_explore_calls','?')}  V1={v1.get('avg_explore_calls','?')}  V2={v2.get('avg_explore_calls','?')}")
+    print(f"    Pass rate: Trad={r(t):<7} V1={r(n1):<7} V2={r(n2):<7} V3={r(n3):<7}"
+          f"  (Δ v1={d(c['v1_pp'])} v2={d(c['v2_pp'])} v3={d(c['v3_pp'])})")
+    exp_vals = [str(m.get('avg_explore_calls','?')) for m in [t, n1, n2, n3]]
+    print(f"    Explore:   Trad={exp_vals[0]:<7} V1={exp_vals[1]:<7} V2={exp_vals[2]:<7} V3={exp_vals[3]:<7}")
 
 print(f"\nSummary JSON: {RESULTS_DIR}/summary.json")
