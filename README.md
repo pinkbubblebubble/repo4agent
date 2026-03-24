@@ -7,7 +7,7 @@
 ### *The repository, redesigned for the agent that works in it.*
 
 <p align="center">
-  <a href="https://pinkbubblebubble.github.io/repo4agent/">
+  <a href="https://pinkbubblebubble.github.io/Repo4Agent/">
     <img src="https://img.shields.io/badge/Live%20Demo-Visit-6366f1?style=for-the-badge&logoColor=white" alt="Live Demo" />
   </a>
   <a href="reports/report_en.md">
@@ -239,7 +239,7 @@ repo4agent/
 ```
 Repo4Agent: Agent-Native Repository Design
 40-run empirical comparison, claude-haiku-4-5-20251001, 2026
-https://github.com/pinkbubblebubble/repo4agent
+https://github.com/pinkbubblebubble/Repo4Agent
 ```
 
 ---
