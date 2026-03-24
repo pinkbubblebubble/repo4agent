@@ -1,3 +1,9 @@
+<div align="right">
+
+<a href="README_CN.md">中文</a> | English
+
+</div>
+
 <div align="center">
 
 <img src="docs/icon.svg" width="96" height="96" alt="Repo4Agent Icon" />
