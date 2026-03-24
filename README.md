@@ -116,6 +116,26 @@ src/
 
 ---
 
+## Ablation Study
+
+The final design was arrived at through three iterations. Each was run as a separate controlled experiment (20 runs per condition).
+
+| Condition | Files | Pass Rate | Avg Tokens | Key change |
+|:---|:---:|:---:|:---:|:---|
+| Traditional | — | 55% | 189K | baseline |
+| AN-Baseline | 4 | 80% | 301K | MANIFEST + INVARIANTS + IMPACT_MAP + AGENT.md |
+| AN-Extended | 11 | 80% | 343K | +7 files: file index, route map, concept index, patterns, status, changelog |
+| **AN-Refined** | **5** | **85%** | **293K** | baseline + TEST_CONTRACTS + stronger fix instructions |
+
+**Key finding from ablation:** Adding 7 more files (AN-Extended) produced the same pass rate as the baseline while costing 14% more tokens. It also introduced new failures: agents skimmed instead of read carefully when the metadata volume was too high. The optimal design is lean — only metadata an agent cannot infer from code alone.
+
+**What the ablation identified:**
+- `TEST_CONTRACTS.yaml` was the only addition that genuinely helped — it fixed 2 over-engineering failures from the baseline
+- Step-by-step fix ordering in `INVARIANTS.md` (not just "call X" but "Step 1: create X, it doesn't exist yet — Step 2: call X") recovered a previously flaky task to 100%
+- Everything else in AN-Extended added noise without contributing to correctness
+
+---
+
 ## Results by Task
 
 <div align="center">

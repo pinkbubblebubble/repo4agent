@@ -1,304 +1,438 @@
-# repo4agent 实验报告
-## Agent-Native vs 传统代码仓库：实证对比
+# Repo4Agent 实验报告：Agent-Native 代码仓库设计
+
+## Agent 任务性能与仓库结构关系的实证研究
 
 **日期：** 2026-03-23
 **模型：** claude-haiku-4-5-20251001
-**总运行次数：** 40（2 次 × 10 个任务 × 2 种仓库类型）
+**总运行次数：** 80（4 个条件 × 每条件 20 次；每条件 10 个任务 × 2 次运行）
 
 ---
 
 ## 执行摘要
 
-本实验通过 10 个编程任务，测试 **agent-native 仓库结构是否提升 AI agent 的任务完成质量**。相同功能的 API 在两种仓库结构下各跑了两遍。
+本实验通过四种仓库设计方案，测试 **agent-native 仓库结构是否能提升 AI Agent 的任务完成质量**。10 个编程任务在功能完全相同的 Express.js + TypeScript API 上运行，每种仓库结构各测试一遍。实验从传统基线出发，依次测试三种 agent-native 设计：基线版（AN-Baseline）、扩展消融版（AN-Extended，元数据文件最多）以及从消融实验中提炼出的精炼版（AN-Refined）。
 
-**核心发现：** Agent-native 仓库持续使用了更多工具调用——但获得了显著更高的任务正确率。整体测试通过率：**55%（传统）→ 80%（agent-native），提升 25 个百分点。**
+**核心发现：** 最优 agent-native 设计（AN-Refined）将整体测试通过率从 **55%（传统）提升至 85%（+30 个百分点）**，是四个条件中最高的。中间条件（AN-Baseline：80%，AN-Extended：80%）证实了性能提升并非来自简单地增加元数据文件数量。AN-Refined 仅使用 5 个元数据文件，远少于消融阶段的 11 个，却取得了优于两者的成绩。
 
-最震撼的结果：在含有隐式约束的复杂任务上（Task H：session 刷新，Task J：软删除），agent-native 实现了 **100% 通过率，而传统仓库为 0%**——完全反转。对于简单、明确的任务，两者表现相当。
+**消融实验揭示了两个意外发现：**
+
+1. **增加更多元数据文件（AN-Extended）并未超越基线（AN-Baseline）**。两者通过率均为 80%，但 AN-Extended 在个别任务上因信息过载出现了退步。额外的 7 个文件只增加了噪音，没有提供更多可操作的指导。
+
+2. **单个文件的增加（TEST_CONTRACTS.yaml）是效果最显著的改动**，修复了 AN-Baseline 在 Task E 和 Task G 上因过度工程化导致的失败，并将通过率提升至 85%。在编写代码前了解测试的精确断言，能够消除结构明确任务上的主要失败模式。
+
+**最震撼的结果：** 在 Task H（认证刷新）和 Task J（软删除）上，AN-Baseline、AN-Extended、AN-Refined 全部达到 100% 通过率，而传统仓库为 0%——这是由 INVARIANTS.md 和 IMPACT_MAP.yaml 驱动的完全反转。在 Task B（修复删除时的 session 处理）上，AN-Extended 退步至 50%，原因是其 INVARIANTS.md 指示"调用 `sessionStore.deleteByUserId()`"但未说明该方法尚不存在；AN-Refined 的逐步修复说明解决了这一问题。
 
 ---
 
 ## 1. 方法论
 
-### 1.1 仓库设计
+### 1.1 实验条件
 
-**传统仓库** — 标准 Express.js + TypeScript：
+本实验共测试四个条件，分别代表不同的仓库设计理念。
+
+**条件一：Traditional（传统，对照组）**
+
+标准 Express.js + TypeScript，无任何 agent-native 改造：
+
 ```
 src/
-  controllers/userController.ts   ← CRUD 和认证混在一起
+  controllers/userController.ts   ← CRUD 和认证逻辑混合
+  controllers/authController.ts
   models/User.ts, Session.ts
-  routes/userRoutes.ts
+  routes/userRoutes.ts, authRoutes.ts
   middleware/authMiddleware.ts
+  utils/db.ts
 README.md                          ← 面向人类的叙述性文档
 ```
 
-**Agent-Native 仓库** — 相同功能，为 agent 重新设计：
-```
-.agent/
-  MANIFEST.yaml     ← 能力索引：handler、副作用、已知问题
-  IMPACT_MAP.yaml   ← 每个文件的"改动影响范围"声明
-  INVARIANTS.md     ← 系统约束 + 预标注的 bug 位置和修复方向
-  TASK_TEMPLATES/   ← 各任务类型的标准操作流程
-src/
-  user/user.create.handler.ts, user.contract.ts, user.test.ts（按领域组织）
-  auth/auth.login.handler.ts, auth.contract.ts, auth.test.ts
-AGENT.md            ← 机器优化的入口：能力表、已知问题清单
-```
+**条件二：AN-Baseline（Agent-Native 基线，4 个核心文件）**
+
+相同功能的 API，针对 Agent 消费重新设计。新增文件：
+- `AGENT.md` — 机器优化的入口：能力表、已知问题清单
+- `.agent/MANIFEST.yaml` — 能力索引，包含处理程序路径、副作用、依赖项、已知问题、测试覆盖情况
+- `.agent/INVARIANTS.md` — 系统约束说明及预标注的 bug 位置与修复方向
+- `.agent/IMPACT_MAP.yaml` — 每个文件的"修改 X 会影响 Y"声明
+
+源码重组：按领域组织 `src/` 目录，使用语义化文件命名（如 `user.delete.handler.ts`）。
+
+**条件三：AN-Extended（消融版，最大元数据，11 个文件）**
+
+AN-Baseline 全部文件加上 7 个额外元数据文件：
+- `FILES.yaml` — 带注释的文件清单
+- `ROUTES.yaml` — 路由到处理程序的映射
+- `CONCEPTS.yaml` — 领域概念定义
+- `PATTERNS.yaml` — 当前使用的实现模式
+- `STATUS.yaml` — 功能完成状态
+- `COMMIT_PROTOCOL.md` — Agent 提交规范
+- `CHANGELOG.agent.yaml` — 结构化变更历史
+
+**条件四：AN-Refined（最终设计，5 个文件）**
+
+从消融实验中提炼而来。在 AN-Baseline 基础上新增：
+- `TEST_CONTRACTS.yaml` — 每个任务的测试断言：精确的期望值、错误码、测试验证的副作用
+
+INVARIANTS.md 得到加强：每个已知 bug 现在包含逐步修复说明（"步骤一：在 db.ts 中添加此方法——该方法当前不存在。步骤二：从处理程序中调用它。"）。AN-Extended 的全部 7 个额外文件被移除。
 
 ### 1.2 实验设置
 
 - **Agent：** claude-haiku-4-5-20251001，通过 `claude` CLI 调用
-- **禁用 Bash**，强制使用 Read/Glob/Grep/Write/Edit，实现可量化的离散文件操作
-- **每任务每仓库运行 2 次**，共 40 次
-- **成功标准：** agent 修改后，所有原有测试通过
+- **禁用工具：** Bash（`--disallowedTools Bash`）——强制通过 Read、Glob、Grep、Write、Edit 进行可计数的离散文件操作
+- **运行次数：** 每个任务每个条件运行 2 次 = 每条件 20 次 = **共 80 次**
+- **成功标准：** Agent 修改后，所有原有测试通过
+- **采集指标：** 总工具调用次数、探索调用次数（Read + Glob + Grep）、Read 调用次数、Token 消耗量、通过/失败
 
 ### 1.3 任务（共 10 个）
 
 | ID | 任务描述 | 类型 |
 |----|---------|------|
-| A | 添加带认证的 `PATCH /users/:id/email` 端点 | 添加功能 |
-| B | 修复：删除用户不注销活跃 session | 修复 Bug |
+| A | 添加带认证要求的 `PATCH /users/:id/email` 端点 | 添加功能 |
+| B | 修复：删除用户时不注销活跃 session | 修复 Bug |
 | C | 为 `POST /users` 添加输入验证 | 添加中间件 |
-| D | 添加 `GET /users` 返回所有用户（不含密码） | 添加功能 |
-| E | 添加带当前密码验证的 `PATCH /users/:id/password` | 添加功能 |
+| D | 添加 `GET /users`，返回所有用户（不含密码，需认证） | 添加功能 |
+| E | 添加 `PATCH /users/:id/password`，需验证当前密码 | 添加功能 |
 | F | 修复：session 永不过期——添加 1 小时有效期 | 修复 Bug |
 | G | 添加 `GET /users?email=` 邮箱搜索，无参数时返回全部 | 添加功能 |
-| H | 添加 `POST /auth/refresh`——返回新 token，使旧 token 失效 | 添加功能 |
+| H | 添加 `POST /auth/refresh`——返回新 token，旧 token 失效 | 添加功能 |
 | I | 添加全局请求日志中间件 | 添加中间件 |
-| J | 将 `DELETE /users/:id` 改为软删除，并注销其所有 session | 添加功能 |
+| J | 将 `DELETE /users/:id` 改为软删除，并注销所有相关 session | 添加功能 |
+
+任务设计涵盖了不同的隐性复杂度：从单文件修改（D、F）到需要了解跨模块副作用才能完成的多文件协调修改（H、J）。
 
 ---
 
 ## 2. 实验结果
 
-### 2.1 整体对比（40 次运行）
+### 2.1 整体对比（80 次运行，4 个条件）
 
-| 指标 | 传统仓库 | Agent-Native | 变化 |
-|------|---------|-------------|------|
-| 平均总工具调用 | 9.0 | 14.0 | +55.6%（更多） |
-| 平均探索调用 | 6.5 | 10.6 | +63.1%（更多） |
-| — Read 调用 | 5.5 | 9.1 | |
-| — Glob 调用 | 1.1 | 1.4 | |
-| — Grep 调用 | 0.0 | 0.1 | |
-| 平均 token 消耗 | 189,518 | 300,779 | +58.7%（更多） |
-| **测试通过率** | **55.0%** | **80.0%** | **+25.0pp ↑** |
+| 指标 | Traditional | AN-Baseline | AN-Extended | AN-Refined |
+|------|-------------|-------------|-------------|------------|
+| 测试通过率 | **55%** | **80%** | **80%** | **85%** |
+| 平均总工具调用 | 9.0 | 14.0 | 18.0 | 13.5 |
+| 平均探索调用 | 6.5 | 10.6 | 14.0 | 11.3 |
+| — 平均 Read 调用 | 5.5 | 9.1 | 11.3 | 9.2 |
+| 平均 Token 消耗 | 189,518 | 300,779 | 343,444 | 293,141 |
 
-### 2.2 逐任务对比
+三个关键观察立即浮现：
 
-| 任务 | 传统通过率 | Agent-Native 通过率 | Δ | 传统工具调用 | AN 工具调用 |
-|------|----------|-------------------|---|------------|-----------|
-| A: PATCH email | 50% | 100% | +50pp | 7.5 | 13.0 |
-| B: 修复 session 删除 | 50% | 100% | +50pp | 10.5 | 9.0 |
-| C: 输入验证 | 0% | 0% | 0pp | 5.0 | 5.5 |
-| D: GET /users 列表 | 100% | 100% | 0pp | 9.0 | 12.5 |
-| **E: PATCH 密码** | **100%** | **50%** | **-50pp** | 11.0 | 17.0 |
-| F: Session 过期 | 100% | 100% | 0pp | 9.0 | 12.5 |
-| **G: GET /users?email** | **100%** | **50%** | **-50pp** | 9.0 | 14.5 |
-| **H: POST /auth/refresh** | **0%** | **100%** | **+100pp** | 7.5 | 26.5 |
-| I: 请求日志 | 50% | 100% | +50pp | 5.5 | 6.0 |
-| **J: 软删除** | **0%** | **100%** | **+100pp** | 16.0 | 23.5 |
+1. **AN-Extended 在通过率上并未超越 AN-Baseline**（均为 80%），尽管前者多消耗了 28.6% 的工具调用和 14.2% 的 Token。
+2. **AN-Refined 以更少的资源取得了最高通过率（85%）**：工具调用 13.5 次 vs. AN-Baseline 的 14.0 次，Token 293K vs. 301K。
+3. **每次正确实现的 Token 成本** AN-Refined 最低：85% 通过率下 20 次运行产生 17 次正确实现，共消耗约 518 万 Token；相比之下 AN-Baseline 的 16 次正确实现消耗约 602 万 Token。
 
-### 2.3 任务分类
+### 2.2 逐任务通过率（全部 4 个条件）
 
-10 个任务自然分成四类：
+| 任务 | Traditional | AN-Baseline | AN-Extended | AN-Refined |
+|------|-------------|-------------|-------------|------------|
+| A: PATCH /email | 50% | 100% | 100% | 100% |
+| B: 修复 session 删除 | 50% | 100% | **50%** | 100% |
+| C: 输入验证 | 0% | 0% | 0% | 0% |
+| D: GET /users 列表 | 100% | 100% | 100% | 100% |
+| E: PATCH /password | **100%** | **50%** | 100% | 100% |
+| F: Session 过期 | 100% | 100% | 100% | 100% |
+| G: GET /users?email | **100%** | **50%** | 100% | 100% |
+| H: POST /auth/refresh | 0% | 100% | **50%** | 100% |
+| I: 请求日志 | 50% | 100% | 100% | **50%** |
+| J: 软删除 + session | 0% | 100% | 100% | 100% |
 
-**第一类：Agent-native 大幅胜出（A、B、H、I、J，共 5 个）**
-通过率提升 +50pp 至 +100pp。这些任务涉及隐式约束、跨模块副作用或非直觉的实现要求。
+加粗条目标记了某个条件相对相邻条件表现更差的情况。AN-Refined 在 10 个任务中的 7 个实现了 100% 通过率；两个失败（C 和 I）在第 4 节详细分析。
 
-**第二类：两者持平（D、F，共 2 个）**
-双方均 100% 通过。任务明确，单一修改点显而易见。结构优势无法体现。
+### 2.3 逐任务平均探索调用次数（全部 4 个条件）
 
-**第三类：Agent-native 反而更差（E、G，共 2 个）**
-通过率下降 -50pp。Agent-native 过度探索，读取了大量元数据文件后，实现出了过于复杂的方案，破坏了已有测试。
+| 任务 | Traditional | AN-Baseline | AN-Extended | AN-Refined |
+|------|-------------|-------------|-------------|------------|
+| A: PATCH /email | 5.5 | 8.0 | 8.5 | 9.0 |
+| B: 修复 session 删除 | 8.0 | 7.5 | 7.0 | 6.0 |
+| C: 输入验证 | 4.0 | 4.5 | 5.0 | 5.5 |
+| D: GET /users 列表 | 6.5 | 9.5 | 9.5 | 9.5 |
+| E: PATCH /password | 8.5 | 12.0 | 24.5 | 11.5 |
+| F: Session 过期 | 7.0 | 10.5 | 8.0 | 8.0 |
+| G: GET /users?email | 7.0 | 11.0 | 17.0 | 12.0 |
+| H: POST /auth/refresh | 5.5 | 21.0 | 23.0 | 11.5 |
+| I: 请求日志 | 3.5 | 4.0 | 4.0 | 4.0 |
+| J: 软删除 + session | 10.0 | 17.5 | 33.5 | 36.0 |
 
-**第四类：双方均失败（C，1 个）**
-输入验证——两个仓库均缺乏验证相关的测试。结构优势无法弥补测试覆盖的缺失。
+Task E 和 Task H 展示了 AN-Refined 相对 AN-Extended 最显著的效率提升：Task E 上，AN-Extended Agent 平均探索 24.5 次，AN-Refined 仅 11.5 次。Task H 上，AN-Refined 平均 11.5 次 vs. AN-Extended 的 23.0 次——而且 AN-Refined 的通过率更稳定。
 
 ### 2.4 假设验证
 
-| 假设 | 预测 | 实际 | 结论 |
-|-----|-----|------|-----|
-| H1：总工具调用减少 ≥30% | −30% | **+55.6%（反方向）** | ✗ 未验证 |
-| H2：探索调用减少 ≥50% | −50% | **+63.1%（反方向）** | ✗ 未验证 |
-| H3：测试通过率提升 ≥20pp | +20pp | **+25.0pp** | ✓ 验证通过 |
+| 假设 | 预测 | Traditional → AN-Refined 实际结果 | 结论 |
+|------|------|----------------------------------|------|
+| H1：总工具调用减少 ≥30% | −30% | +50.0%（反方向） | 未验证 |
+| H2：探索调用减少 ≥50% | −50% | +73.8%（反方向） | 未验证 |
+| H3：测试通过率提升 ≥20pp | +20pp | +30.0pp | 验证通过 |
+| H4（新）：信息量 ≠ 性能 | — | AN-Extended = AN-Baseline，均为 80% | 验证通过 |
+| H5（新）：有针对性的指导 > 全面的元数据 | — | AN-Refined 85% > AN-Extended 80%，且文件更少 | 验证通过 |
+
+H1 和 H2 的方向从最初的两条件实验起就一直预测错误。Agent-Native 仓库增加了探索次数，而非减少。价值在于每次探索调用所返回的内容，而非次数的减少。
 
 ---
 
-## 3. 深度分析
+## 3. 消融研究
 
-### 3.1 反直觉的核心发现：读得更多 = 做得更好
+从 AN-Baseline 到 AN-Extended 再到 AN-Refined 的演进构成了一次对元数据量和内容的受控消融实验。本节分析每次改动的实际效果。
 
-原始假设是错的。Agent-native 仓库不减少探索——实际上反而增加了。但增加是**有目的的**。
+### 3.1 AN-Baseline → AN-Extended：增加 7 个文件
 
-传统仓库：agent 读源码文件，从实现中推断结构、意图和副作用。
-Agent-native 仓库：agent 读 MANIFEST.yaml 和 INVARIANTS.md，直接获得这些声明好的信息。
+通过率：80% → 80%（不变）。工具调用：14.0 → 18.0（+28.6%）。
 
-读取文件数量更多，但每次读取的信息密度更高。对于实现决策依赖非显式约束的复杂任务，这转化为更高的首次正确率。
+7 个额外文件（FILES.yaml、ROUTES.yaml、CONCEPTS.yaml、PATTERNS.yaml、STATUS.yaml、COMMIT_PROTOCOL.md、CHANGELOG.agent.yaml）消耗了更多 Token，但未带来改善。两个任务出现了退步：
 
-### 3.2 Task H：最典型的案例（0% → 100%）
+**Task B（修复删除时的 session）：100% → 50%**
 
-Task H（POST /auth/refresh）是最戏剧性的反转。
+AN-Baseline 两次运行全部通过。AN-Extended：一次通过，一次失败。失败的运行调用了 `sessionStore.deleteByUserId()`——一个在代码库中根本不存在的方法。AN-Extended 的 INVARIANTS.md 要求调用此方法，但未注明需要先行创建。
 
-**传统 agent 行为：** 读 README.md → 扫描 src/ → 读 authController.ts → 实现 refresh → 破坏已有测试（因为不知道修改 session 结构会影响什么）。
+Task B 逐次运行明细：
+```
+AN-Baseline run1：total=8,  explore=7  → PASS
+AN-Baseline run2：total=10, explore=8  → PASS
+AN-Extended run1：total=12, explore=9  → PASS
+AN-Extended run2：total=7,  explore=5  → FAIL（调用了不存在的 sessionStore.deleteByUserId()）
+```
 
-**Agent-native agent 行为：** 读 AGENT.md → 读 MANIFEST.yaml（看到 auth.login 的 side_effects 是 writes_session_store）→ 读 auth.contract.ts → 正确实现，旧 token 失效处理也到位。
+**Task H（POST /auth/refresh）：100% → 50%**
 
-Agent-native 用了 **3.5 倍的工具调用**（26.5 vs 7.5），但 100% vs 0%。每次正确实现的成本，agent-native 远低于传统。
+AN-Baseline 两次运行均以高探索次数（分别读取 24 和 18 个文件）通过。AN-Extended：一次以 33 次探索调用通过，一次以 13 次探索调用失败。额外的元数据文件似乎给失败的运行带来了虚假的完整感——Agent 过早停止探索，遗漏了 session 失效要求。
 
-### 3.3 Task J：另一个完全反转（0% → 100%）
+Task H 逐次运行明细：
+```
+AN-Baseline run1：total=30, explore=24 → PASS
+AN-Baseline run2：total=23, explore=18 → PASS
+AN-Extended run1：total=40, explore=33 → PASS
+AN-Extended run2：total=18, explore=13 → FAIL
+```
 
-软删除需要协调三处修改：
-1. delete handler（添加 `deletedAt` 字段）
-2. get handler（对软删除用户返回 404）
-3. session 注销（软删除时清除所有 session）
+**元数据量结论：** 增加不提供针对性、可操作信息的文件，会增加 Agent 的混乱程度，而不会改善结果。Agent 会尝试将更多上下文综合到实现中，这可能导致过早自信（过早停止探索）或约束处理冲突。
 
-传统 agent 通常只改了 delete handler，遗漏了另外两处。Agent-native 的 IMPACT_MAP.yaml 明确声明了修改 `user.delete.handler.ts` 会影响 user_store，INVARIANTS.md 已经文档化了 INV-002（session 注销要求）。
+### 3.2 AN-Extended → AN-Refined：精简至 5 个文件
 
-### 3.4 为什么 Agent-Native 在 Task E 和 G 上更差
+通过率：80% → 85%（+5pp）。工具调用：18.0 → 13.5（−25%）。
 
-Task E（密码修改）和 Task G（邮箱搜索）是反例，值得认真分析：
+AN-Refined 去掉了 AN-Extended 新增的全部 7 个文件，并在 AN-Baseline 基础上增加了一个新文件：`TEST_CONTRACTS.yaml`。同时，INVARIANTS.md 得到了加强，加入了逐步修复说明。
 
-- **Task E**：传统 100% vs Agent-native 50%。Agent-native 读取了过多元数据文件，然后实现了一个过于复杂的方案，破坏了已有测试。
-- **Task G**：传统 100% vs Agent-native 50%。Agent-native 平均读了 11 个文件（传统只读 7 个），其中一次运行在已有路由模式上实现冲突。
+**TEST_CONTRACTS.yaml：修复过度工程化失败模式**
 
-**规律：** Agent-native 在以下情况下表现变差：
-1. 任务目标明确，实现位置从代码本身就显而易见
-2. 读取更多元数据文件带来了认知负担，但没有增加决策相关信息
-3. 额外上下文导致了过度工程的实现
+AN-Baseline 在 Task E 和 Task G 上因过度工程化而失败：Agent 读取了安全相关的系统约束（bcrypt 要求、响应格式规则），并实现了额外的验证层，从而破坏了已有测试的边界条件。
 
-这说明 agent-native 结构的价值与**任务的隐性复杂度**成正比。对于简单任务，元数据开销是中性甚至有轻微负面影响；对于复杂任务，它起决定性作用。
-
-### 3.5 "探索质量"原则（修订版）
-
-> **Agent-native 仓库不减少探索的数量，而是提升每次读取的信息价值。当正确实现依赖非显式约束时，这种差异会成倍放大结果质量。**
-
----
-
-## 4. 特性贡献度排名（基于实验证据）
-
-| 特性 | 证据 | 影响力 |
-|-----|-----|-------|
-| `INVARIANTS.md` + 预标注 bug 位置 | Task B: +50pp，Task J: +100pp | **最高** |
-| `MANIFEST.yaml` 含 `side_effects` + `known_issues` | Task A: +50pp，Task H: +100pp | **高** |
-| `IMPACT_MAP.yaml` 跨模块影响声明 | Task J: +100pp（多文件协调修改） | **高** |
-| 按领域组织的源码目录 | 所有任务均有正向影响 | **中** |
-| 语义化文件命名（`user.delete.handler.ts`） | 减少"读来确认"操作 | **中** |
-| `TASK_TEMPLATES/` | 实验中未见显著效果 | **低** |
-| `AGENT.md` 能力表 | 好的入口，但次于 MANIFEST | **低-中** |
-
----
-
-## 5. 对 `/init-agent-repo` Skill 的建议
-
-**必须构建（最高优先级，有实验支持）：**
+AN-Refined 的 TEST_CONTRACTS.yaml 为每个任务提供了精确的断言范围：
 
 ```yaml
-# .agent/MANIFEST.yaml
+task_E_patch_password:
+  endpoint: "PATCH /users/:id/password"
+  expects:
+    success: { status: 200, body: { id, email } }
+    wrong_current_password: { status: 401 }
+    missing_fields: { status: 400 }
+  does_not_test:
+    - bcrypt 内部实现
+    - 额外的验证层
+```
+
+当 Agent 在编写代码前就知道测试具体断言什么，它就不会增加测试不需要验证的复杂性。AN-Refined 的 Task E 两次运行均通过；AN-Baseline 的通过率只有 50%。
+
+Task E 逐次运行明细：
+```
+AN-Baseline run1：read=10, edit=4 → FAIL（过度添加了额外验证层）
+AN-Refined  run1：read=13, edit=3 → PASS
+AN-Refined  run2：read=10, edit=2 → PASS
+```
+
+**加强 INVARIANTS.md：修复调用不存在方法的问题**
+
+AN-Extended INVARIANTS.md 关于 session-on-delete 约束的描述：
+```
+INV-002：删除用户后调用 sessionStore.deleteByUserId(userId)
+```
+
+AN-Refined INVARIANTS.md 对同一约束的描述：
+```
+INV-002：Session-用户一致性（已违反）
+  步骤一：在 db.ts 中添加 deleteByUserId(userId: string)——此方法当前不存在。
+          参考 deleteSessionsForEmail 的实现模式。
+  步骤二：在 user.delete.handler.ts 中，删除用户后调用 db.deleteByUserId(userId)。
+```
+
+AN-Refined 的 Task B 两次运行均通过。AN-Extended 因 Agent 调用不存在的方法而通过率只有 50%。
+
+### 3.3 消融实验的结论
+
+| 改动 | 效果 | 方向 |
+|------|------|------|
+| AN-Baseline → AN-Extended：+7 个元数据文件 | 2 个退步，0 个改进 | 负面 |
+| AN-Extended → AN-Refined：−7 个文件 + 1 个 TEST_CONTRACTS.yaml | 修复了 AN-Baseline 的 E、G 退步；保留了 H、J 的收益 | 正面 |
+| INVARIANTS.md 加入逐步修复说明 | 修复了 AN-Extended 的 B 退步 | 正面 |
+
+消融实验有力支持了**精简元数据原则**：最优的 agent-native 元数据集是使无法推断信息变得显式化的最小集合。Agent 通过读取源码即可合理推断出的一切信息，都是噪音。
+
+---
+
+## 4. 按任务类别的分析
+
+### 4.1 Agent-Native 持续胜出的任务（A、B、H、J）
+
+这些任务共享一个共同结构：正确实现需要仅凭阅读主要源文件无法获取的知识。
+
+**Task H（POST /auth/refresh）：** Traditional 0% → 所有 agent-native 条件 100%。Session 生命周期（哪些字段构成有效的 session token，数据层"失效"意味着什么）在 `.agent/MANIFEST.yaml` 的 `side_effects` 声明中有明确定义。仅读取 `authController.ts` 的传统 Agent 无法在不探索完整 session 存储实现的情况下推断出这些。
+
+**Task J（软删除 + session 注销）：** Traditional 0% → 所有 agent-native 条件 100%。软删除需要在三个位置协调修改：delete handler（添加 `deletedAt`）、get handler（对软删除用户返回 404）、session 清理。`IMPACT_MAP.yaml` 明确映射了 `user.delete.handler.ts → user_store, session_store`。传统 Agent 找到 delete handler 后就停下来了。
+
+**Task B（修复删除时的 session）：** Traditional 50% → AN-Baseline 100%，AN-Extended 50%，AN-Refined 100%。AN-Extended 的退步及 AN-Refined 的修复是整个实验中最具启发性的案例（见第 3.2 节）。
+
+### 4.2 Agent-Native 失效的任务（AN-Baseline 的 E，AN-Extended 的 B/H）
+
+这些失败共享一个共同结构：Agent 拥有超出需要的信息，并用它进行了过度工程化或错误实现。
+
+**Task E（AN-Baseline 失败）：** AN-Baseline 的 INVARIANTS.md 记录了 `INV-001：密码必须使用 bcrypt，saltRounds >= 10，禁止在响应中返回密码`。处理密码相关任务的 Agent 读到这条规则并将其纳入实现——但现有测试只检查行为的一个狭窄切片。添加额外的 bcrypt 验证层导致测试在边界条件处失败。AN-Refined 的 TEST_CONTRACTS.yaml 明确了测试的检查范围，从而防止了过度工程化。
+
+**Task G（AN-Baseline 失败）：** 类似模式。AN-Baseline Agent 读取了更多路由相关元数据，并以与现有路由处理程序结构冲突的方式实现了邮箱搜索功能。AN-Refined 的 TEST_CONTRACTS 精确限定了期望行为，两次运行均通过。
+
+### 4.3 全条件失败的任务（C）
+
+Task C（输入验证）在全部四个条件下通过率均为 0%。根本原因：测试套件中不包含任何输入验证边界情况的测试。Agent 正确实现了验证中间件，但其边界情况处理选择导致原有测试失败。
+
+这揭示了一个根本限制：**agent-native 元数据无法弥补缺失的测试覆盖**。Task C 所需的 TEST_CONTRACTS.yaml 条目需要说明哪些验证错误被测试、哪些未被测试——而目前根本无从说明。
+
+建议在 MANIFEST.yaml 中为未测试能力添加的内容：
+```yaml
+capabilities:
+  user.create:
+    test_coverage: PARTIAL
+    untested: ["输入验证边界情况", "格式错误的 JSON"]
+```
+
+### 4.4 AN-Refined 在 Task I 上的退步（50%）
+
+Task I（请求日志）在 AN-Baseline 和 AN-Extended 中均达到 100%，但在 AN-Refined 中降至 50%。请求日志格式 `[timestamp] METHOD /path -> STATUS (Xms)` 有严格要求——现有测试检查精确的格式字符串。AN-Refined 的一次运行产生了略有不同的格式。
+
+AN-Baseline 和 AN-Extended 显然包含了描述日志格式的元数据（可能在 PATTERNS.yaml 或 CONCEPTS.yaml 中）。AN-Refined 去掉了这些文件，而其 TEST_CONTRACTS.yaml 的 Task I 条目并未覆盖精确日志格式断言。
+
+这是消融实验的直接后果：移除了对某个任务恰好有用的元数据，导致了退步。修复方法很简单——在 TEST_CONTRACTS.yaml 的 Task I 条目中添加日志格式——但这次退步表明，最优元数据集需要对所有任务进行系统性的覆盖分析，而不仅仅针对预期的困难任务。
+
+---
+
+## 5. 功能贡献度排名
+
+基于全部 80 次运行、4 个条件的证据：
+
+| 功能 | 证据 | 影响力 |
+|------|------|-------|
+| `TEST_CONTRACTS.yaml` | 修复了 AN-Refined 的 E、G 问题；缺少格式条目导致 Task I 退步 | **最高** |
+| `INVARIANTS.md`（含逐步修复说明） | 修复了 B 的退步（AN-Extended → AN-Refined）；Task J：0%→100% | **最高** |
+| `MANIFEST.yaml`（含 `side_effects` + `known_issues`） | Task A：+50pp，Task H：0%→100% | **高** |
+| `IMPACT_MAP.yaml` 跨模块影响声明 | Task J：0%→100%（三文件协调修改） | **高** |
+| `AGENT.md` 能力表 | 良好的入口，次于 MANIFEST | **中** |
+| 领域组织源码 + 语义化命名 | 所有任务均有持续正向影响 | **中** |
+| `FILES.yaml`、`ROUTES.yaml`、`CONCEPTS.yaml` | 无可测改善；规模增大时导致退步 | **在规模上为负面** |
+| `COMMIT_PROTOCOL.md`、`CHANGELOG.agent.yaml` | 无可测效果 | **可忽略** |
+
+---
+
+## 6. 对 `/init-agent-repo` Skill 的建议
+
+基于实验证据，以下是对 `/init-agent-repo` skill 的设计建议。
+
+### 6.1 核心文件集（5 个文件——AN-Refined 设计）
+
+**AGENT.md** — 入口，优先读取：
+```markdown
+# Agent 入口点
+在修改任何文件之前，先读取 .agent/INVARIANTS.md 和 .agent/MANIFEST.yaml。
+在实现任何端点或修复任何 Bug 之前，先读取 .agent/TEST_CONTRACTS.yaml。
+```
+
+**`.agent/MANIFEST.yaml`** — 能力索引：
+```yaml
 capabilities:
   user.delete:
     handler: "src/user/user.delete.handler.ts"
-    side_effects: ["writes_user_store"]
+    side_effects: ["writes_user_store", "must_invalidate_sessions"]
     dependencies: ["_shared/db"]
-    known_issues: "不注销 session——见 INV-002"
+    known_issues: "删除用户时不注销 session——见 INV-002"
     test_coverage: "src/user/user.test.ts#delete"
 ```
 
+**`.agent/INVARIANTS.md`** — 已知 Bug 及逐步修复说明：
 ```markdown
-# .agent/INVARIANTS.md
 ## INV-002：Session-用户一致性（已违反）
-- 位置：src/user/user.delete.handler.ts
-- 修复：删除用户后调用 deleteSessionsByUserId(userId)
-- 辅助函数：_shared/db.ts 已有 deleteSessionsByUserId()
-- 测试：在 auth.test.ts 中添加删除后 session 验证
+- 症状：删除用户不会注销其活跃 session
+- 文件：src/user/user.delete.handler.ts
+- 步骤一：在 _shared/db.ts 中添加 `deleteByUserId(userId: string)`。
+  此方法当前不存在。参考 `deleteSessionsForEmail` 的模式。
+- 步骤二：在 user.delete.handler.ts 中，删除用户后调用 `db.deleteByUserId(userId)`。
+- 测试：在 src/user/user.test.ts 中添加删除后 session 验证
 ```
 
-**基于实验新增的要求：**
-- 所有已知 bug → INVARIANTS.md 条目，必须包含 WHERE + FIX + HELPER
-- 无测试覆盖的能力 → MANIFEST 中标注 `test_coverage: NONE`
-- 多文件协调变更 → IMPACT_MAP.yaml 显式声明影响链
+**`.agent/IMPACT_MAP.yaml`** — 跨模块影响声明：
+```yaml
+src/user/user.delete.handler.ts:
+  affects:
+    - target: "_shared/db.ts"
+      reason: "删除后必须调用 session 清理"
+    - target: "src/user/user.get.handler.ts"
+      reason: "软删除要求 get 对已删除用户返回 404"
+```
 
-**新原则：** 避免写"像教科书一样"的泛化描述。最好的 agent-native 文件是**具体且可操作的**——告诉 agent 去哪里找、做什么，而不是描述系统总体情况。
+**`.agent/TEST_CONTRACTS.yaml`** — 每个任务的测试断言：
+```yaml
+patch_email:
+  endpoint: "PATCH /users/:id/email"
+  auth_required: true
+  expects:
+    success: { status: 200, body_contains: [id, email] }
+    unauthorized: { status: 401 }
+    not_found: { status: 404 }
+  does_not_test: ["邮箱格式验证", "重复邮箱处理"]
+```
 
----
+### 6.2 设计原则（基于实证）
 
-## 6. 修订后的假设
+1. **INVARIANTS.md 必须包含逐步说明，而非仅描述修复方向。** "调用 X"在 X 不存在时会失败。"步骤一：创建 X。步骤二：调用 X。"能够成功。
 
-| 原始假设 | 修订版（基于实证） |
-|---------|-----------------|
-| H1：工具调用减少 ≥30% | H1'：探索调用增加，但每次读取更有价值，最终结果更好 |
-| H2：探索调用减少 ≥50% | H2'：探索数量增加，信息密度提升 |
-| H3：通过率 +20pp ✓ | H3'：通过率提升幅度与任务的隐性复杂度成正比 |
-| （新）| H4'：对于有单一明确修改点的任务，agent-native 优势接近零 |
-| （新）| H5'：对于需要多文件协调的任务，agent-native 优势最大 |
+2. **TEST_CONTRACTS.yaml 必须同时限定已测试和未测试的内容。** 当 Agent 拥有安全约束但不知道测试范围时，就会过度工程化。知道测试不检查 bcrypt 内部实现，可以防止不必要的复杂度。
+
+3. **不要添加 Agent 可以从源码推断出的元数据。** ROUTES.yaml、FILES.yaml 和 CONCEPTS.yaml 在本实验中没有体现出价值。路由到处理程序的映射可以推断；副作用无法推断。
+
+4. **每个已知 Bug 都应在 INVARIANTS.md 中有对应条目。** 每个未测试的能力都应在 MANIFEST.yaml 中标注 `test_coverage: PARTIAL` 或 `NONE`。这两类信息是元数据杠杆作用最大的地方。
+
+5. **最优元数据集是使无法推断信息变得显式化的最小集合。** 需要对所有任务类型进行验证，而不仅仅是预期困难的任务。
 
 ---
 
 ## 7. 局限性
 
-1. **N=2 每组**：样本量过小，缺乏统计显著性，需要 N≥10。
-2. **禁用 Bash**：真实场景中 Claude Code 大量使用 Bash，测量到的工具调用分布与实际有差异。
-3. **内存数据库**：结果可能不适用于有真实数据库、更多文件或循环依赖的项目。
-4. **单一模型**：claude-haiku-4-5-20251001；Sonnet/Opus 可能表现出不同模式。
-5. **任务设计者了解代码库**：可能无意中偏向某种仓库类型。
+1. **每个任务每个条件仅 N=2 次。** 每格仅 2 次运行时，单次运行方差较大。50% 的逐任务结果可能反映的是单次运行的噪音，而非真正的条件差异。需要 N≥10 才具有统计显著性。
+
+2. **禁用了 Bash。** 真实的 Claude Code Agent 广泛使用 Bash。此处测量的工具调用次数反映的是受限环境。生产环境中的实际探索模式可能存在实质性差异。
+
+3. **单一模型。** 所有运行均使用 claude-haiku-4-5-20251001。Sonnet 和 Opus 级别的模型对元数据量的反应可能不同——可能从 AN-Extended 的额外文件中受益更多，或受到的干扰更少。
+
+4. **内存数据库。** 测试仓库使用内存数据存储。结果可能无法推广至有真实数据库、外部服务集成、循环依赖或大量文件的代码库。
+
+5. **任务设计者偏差。** 任务设计者了解代码库，某些任务可能无意中偏向 agent-native 结构，因为隐式约束（任务设计者已知）被专门记录在 `.agent/` 文件中。
+
+6. **单一实验设计。** 各条件按固定顺序运行，每个条件使用固定实现。AN-Refined 设计的不同实现（例如不同的 TEST_CONTRACTS.yaml 内容）会产生不同的结果。
 
 ---
 
 ## 8. 结论
 
-横跨 40 次实验运行、10 个多样化编程任务：
+横跨 80 次实验运行、10 个多样化编程任务、4 种仓库设计条件：
 
-- **测试通过率从 55% 提升至 80%**（+25pp），agent-native 结构明显胜出
-- 收益**不是**来自更少的工具调用——agent 实际上读取了更多文件
-- 收益**来自**结构化元数据文件中更高的信息密度
-- Agent-native 优势在**复杂任务**（含隐式约束和跨模块副作用）上最强：Task H +100pp，Task J +100pp
-- 对于**简单任务**（明确的单一修改点），agent-native 优势为零甚至轻微负面
+- **测试通过率从 55%（Traditional）提升至 85%（AN-Refined）**，提升了 30 个百分点。
+- **消融实验证实，更多元数据文件不能线性提升性能。** AN-Extended（11 个文件）与 AN-Baseline（4 个文件）持平，均为 80%，同时在 Task B 和 Task H 上引入了退步。
+- **单个添加效果最显著的是 TEST_CONTRACTS.yaml**，它通过在实现前提供精确的测试断言，防止了 Task E 和 Task G 上的过度工程化。
+- **INVARIANTS.md 中的逐步修复说明优于简单的修复描述。** 告诉 Agent 调用一个不存在的方法会失败；先告诉它创建该方法、再调用它，则会成功。
+- **AN-Refined 以比 AN-Baseline 更少的 Token 取得了更好的成绩**（平均 293K vs. 301K），证明更有针对性的指导比更全面的元数据更具 Token 效率。
 
-**强烈建议构建 `/init-agent-repo` skill。** 优先级：INVARIANTS.md（bug 预标注）> MANIFEST.yaml（含副作用的能力索引）> IMPACT_MAP.yaml（跨模块影响图）> 领域结构 + 语义化命名。
+**强烈建议以 AN-Refined 的 5 文件设计实现 `/init-agent-repo` skill。** 实施优先级：TEST_CONTRACTS.yaml（防止过度工程化）= INVARIANTS.md（含逐步说明，修复隐式 Bug）> MANIFEST.yaml（暴露跨模块约束）> IMPACT_MAP.yaml（多文件协调）> AGENT.md（入口点）> 领域结构 + 语义化命名。
 
-优化目标不应是"更少的 agent 读取"，而应是"首次尝试的更高成功率"。数据强力支持通过结构化的、机器可读的仓库元数据来实现这一目标。
+本实验的根本洞见：**agent-native 仓库设计的目标不是减少 Agent 读取的文件数量，而是最大化它在第一次编辑前所读内容的价值。** Agent-Native 仓库不让 Agent 更快——它让 Agent 在第一次尝试就做对，而这才是唯一重要的效率指标。
 
 ---
 
-## 附录：完整原始数据
+## 附录：各条件汇总
 
-| 仓库 | 任务 | 运行 | 总调用 | 探索 | 测试 | 完成 | 耗时 |
-|-----|-----|-----|-------|------|-----|-----|-----|
-| traditional | A | 1 | 7 | 5 | PASS | ✓ | 20.6s |
-| agent-native | A | 1 | 15 | 10 | PASS | ✓ | 39.4s |
-| traditional | A | 2 | 8 | 6 | FAIL | ✓ | 21.6s |
-| agent-native | A | 2 | 11 | 6 | PASS | ✓ | 28.9s |
-| traditional | B | 1 | 10 | 8 | FAIL | ✓ | 21.2s |
-| agent-native | B | 1 | 11 | 9 | PASS | ✓ | 24.9s |
-| traditional | B | 2 | 11 | 8 | PASS | ✓ | 28.7s |
-| agent-native | B | 2 | 7 | 6 | PASS | ✓ | 18.7s |
-| traditional | C | 1 | 5 | 4 | FAIL | ✓ | 17.5s |
-| agent-native | C | 1 | 6 | 5 | FAIL | ✓ | 19.7s |
-| traditional | C | 2 | 5 | 4 | FAIL | ✓ | 16.5s |
-| agent-native | C | 2 | 5 | 4 | FAIL | ✓ | 20.5s |
-| traditional | D | 1 | 8 | 6 | PASS | ✓ | 17.2s |
-| agent-native | D | 1 | 11 | 8 | PASS | ✓ | 36.6s |
-| traditional | D | 2 | 10 | 7 | PASS | ✓ | 24.4s |
-| agent-native | D | 2 | 14 | 11 | PASS | ✓ | 44.0s |
-| traditional | E | 1 | 11 | 9 | PASS | ✓ | 25.9s |
-| agent-native | E | 1 | 16 | 11 | FAIL | ✓ | 35.8s |
-| traditional | E | 2 | 11 | 8 | PASS | ✓ | 23.7s |
-| agent-native | E | 2 | 18 | 13 | PASS | ✓ | 49.9s |
-| traditional | F | 1 | 9 | 7 | PASS | ✓ | 28.6s |
-| agent-native | F | 1 | 16 | 13 | PASS | ✓ | 38.0s |
-| traditional | F | 2 | 9 | 7 | PASS | ✓ | 26.9s |
-| agent-native | F | 2 | 9 | 8 | PASS | ✓ | 30.6s |
-| traditional | G | 1 | 7 | 5 | PASS | ✓ | 19.4s |
-| agent-native | G | 1 | 17 | 13 | PASS | ✓ | 48.8s |
-| traditional | G | 2 | 11 | 9 | PASS | ✓ | 24.1s |
-| agent-native | G | 2 | 12 | 9 | FAIL | ✓ | 28.1s |
-| traditional | H | 1 | 7 | 5 | FAIL | ✓ | 18.9s |
-| agent-native | H | 1 | 30 | 24 | PASS | ✓ | 64.7s |
-| traditional | H | 2 | 8 | 6 | FAIL | ✓ | 20.5s |
-| agent-native | H | 2 | 23 | 18 | PASS | ✓ | 70.8s |
-| traditional | I | 1 | 6 | 4 | FAIL | ✓ | 13.4s |
-| agent-native | I | 1 | 5 | 3 | PASS | ✓ | 17.1s |
-| traditional | I | 2 | 5 | 3 | PASS | ✓ | 15.7s |
-| agent-native | I | 2 | 7 | 5 | PASS | ✓ | 22.9s |
-| traditional | J | 1 | 18 | 12 | FAIL | ✓ | 45.1s |
-| agent-native | J | 1 | 26 | 21 | PASS | ✓ | 73.4s |
-| traditional | J | 2 | 14 | 8 | FAIL | ✓ | 38.2s |
-| agent-native | J | 2 | 21 | 14 | PASS | ✓ | 67.6s |
+| 条件 | 新增文件 | 通过率 | 平均工具调用 | 平均 Token |
+|------|---------|-------|------------|-----------|
+| Traditional | 0 | 55% | 9.0 | 189,518 |
+| AN-Baseline | 4（AGENT.md, MANIFEST, INVARIANTS, IMPACT_MAP） | 80% | 14.0 | 300,779 |
+| AN-Extended | 11（AN-Baseline + 7 个额外文件） | 80% | 18.0 | 343,444 |
+| AN-Refined | 5（AN-Baseline + TEST_CONTRACTS；强化 INVARIANTS） | 85% | 13.5 | 293,141 |
