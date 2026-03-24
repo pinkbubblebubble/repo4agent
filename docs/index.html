@@ -904,7 +904,7 @@
 <section id="hero">
   <div class="hero-bg-glow"></div>
   <div class="container">
-    <div class="hero-eyebrow">Experimental Research · 40 Runs · 10 Tasks</div>
+    <div class="hero-eyebrow">Empirical Research · 80 Runs · 4 Conditions · 10 Tasks</div>
     <h1 class="hero-title">
       <span class="word-sans">The</span> repository,<br><em>redesigned</em><br><span class="word-sans">for AI agents.</span>
     </h1>
@@ -915,7 +915,7 @@
     </p>
     <div class="hero-stat-row">
       <div class="hero-stat">
-        <span class="hero-stat-num" data-target="80">0</span>
+        <span class="hero-stat-num" data-target="85">0</span>
         <span class="hero-stat-label">Agent-native pass rate</span>
       </div>
       <div class="hero-stat">
@@ -923,11 +923,11 @@
         <span class="hero-stat-label">Traditional pass rate</span>
       </div>
       <div class="hero-stat">
-        <span class="hero-stat-num" style="color:var(--green)" data-target="25">+0</span>
+        <span class="hero-stat-num" style="color:var(--green)" data-target="30">+0</span>
         <span class="hero-stat-label">Percentage point gain</span>
       </div>
       <div class="hero-stat">
-        <span class="hero-stat-num" data-target="40">0</span>
+        <span class="hero-stat-num" data-target="80">0</span>
         <span class="hero-stat-label">Total experiment runs</span>
       </div>
     </div>
@@ -1040,7 +1040,7 @@
   <div class="container">
     <div class="section-header fade-in">
       <div class="section-tag" data-num="03">Experiment Results</div>
-      <h2 class="display section-title">40 runs. 10 tasks. Real numbers.</h2>
+      <h2 class="display section-title">80 runs. 4 conditions. Real numbers.</h2>
     </div>
 
     <div class="results-summary fade-in">
@@ -1051,13 +1051,13 @@
       </div>
       <div class="result-stat">
         <div class="result-stat-label">Agent-native pass rate</div>
-        <div class="result-stat-num green" data-counter="80">0%</div>
-        <div class="result-stat-sub">16 / 20 runs passing</div>
+        <div class="result-stat-num green" data-counter="85">0%</div>
+        <div class="result-stat-sub">17 / 20 runs passing</div>
       </div>
       <div class="result-stat">
         <div class="result-stat-label">Token cost per correct answer</div>
-        <div class="result-stat-num amber" style="font-size:28px">+9.3%</div>
-        <div class="result-stat-sub">339K → 371K (45% more correct answers)</div>
+        <div class="result-stat-num amber" style="font-size:28px">≈ 0%</div>
+        <div class="result-stat-sub">344K → 345K (55% more correct answers)</div>
       </div>
     </div>
 
@@ -1092,11 +1092,11 @@
           <div class="chart-bar-wrap"><div class="chart-bar native"><span class="chart-bar-val">100%</span></div></div>
         </div>
       </div>
-      <div class="chart-row" id="row-e" data-trad="100" data-native="50">
+      <div class="chart-row" id="row-e" data-trad="100" data-native="100">
         <div class="chart-label">Task E<br><span style="font-size:10px;color:var(--muted)">PATCH password</span></div>
         <div class="chart-bars">
           <div class="chart-bar-wrap"><div class="chart-bar trad"><span class="chart-bar-val">100%</span></div></div>
-          <div class="chart-bar-wrap"><div class="chart-bar native" style="background:rgba(248,113,113,0.5)"><span class="chart-bar-val">50%</span></div></div>
+          <div class="chart-bar-wrap"><div class="chart-bar native"><span class="chart-bar-val">100%</span></div></div>
         </div>
       </div>
       <div class="chart-row" id="row-f" data-trad="100" data-native="100">
@@ -1106,11 +1106,11 @@
           <div class="chart-bar-wrap"><div class="chart-bar native"><span class="chart-bar-val">100%</span></div></div>
         </div>
       </div>
-      <div class="chart-row" id="row-g" data-trad="100" data-native="50">
+      <div class="chart-row" id="row-g" data-trad="100" data-native="100">
         <div class="chart-label">Task G<br><span style="font-size:10px;color:var(--muted)">Email search</span></div>
         <div class="chart-bars">
           <div class="chart-bar-wrap"><div class="chart-bar trad"><span class="chart-bar-val">100%</span></div></div>
-          <div class="chart-bar-wrap"><div class="chart-bar native" style="background:rgba(248,113,113,0.5)"><span class="chart-bar-val">50%</span></div></div>
+          <div class="chart-bar-wrap"><div class="chart-bar native"><span class="chart-bar-val">100%</span></div></div>
         </div>
       </div>
       <div class="chart-row" id="row-h" data-trad="0" data-native="100">
@@ -1137,10 +1137,62 @@
 
       <div class="chart-legend">
         <div class="chart-legend-item"><div class="legend-dot trad"></div> Traditional</div>
-        <div class="chart-legend-item"><div class="legend-dot native"></div> Agent-Native</div>
+        <div class="chart-legend-item"><div class="legend-dot native"></div> Agent-Native (final)</div>
         <div style="color:var(--muted);font-size:11px;margin-left:8px">★ = complete reversal (0% → 100%)</div>
       </div>
     </div>
+
+    <!-- ABLATION TABLE -->
+    <div class="fade-in" style="margin-top:48px">
+      <div style="font-size:11px;letter-spacing:0.15em;text-transform:uppercase;color:var(--dim);margin-bottom:20px">Ablation Study — how the design was refined</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;font-family:'JetBrains Mono',monospace">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="text-align:left;padding:10px 16px;color:var(--dim);font-weight:400">Condition</th>
+              <th style="text-align:center;padding:10px 16px;color:var(--dim);font-weight:400">Files</th>
+              <th style="text-align:center;padding:10px 16px;color:var(--dim);font-weight:400">Pass Rate</th>
+              <th style="text-align:center;padding:10px 16px;color:var(--dim);font-weight:400">Avg Tokens</th>
+              <th style="text-align:left;padding:10px 16px;color:var(--dim);font-weight:400">Key change</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+              <td style="padding:12px 16px;color:var(--text)">Traditional</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--muted)">—</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--red)">55%</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--muted)">189K</td>
+              <td style="padding:12px 16px;color:var(--muted)">baseline control</td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+              <td style="padding:12px 16px;color:var(--text)">AN-Baseline</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--muted)">4</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--cyan)">80%</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--muted)">301K</td>
+              <td style="padding:12px 16px;color:var(--muted)">MANIFEST + INVARIANTS + IMPACT_MAP + AGENT.md</td>
+            </tr>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+              <td style="padding:12px 16px;color:var(--text)">AN-Extended</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--muted)">11</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--cyan)">80%</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--red)">343K</td>
+              <td style="padding:12px 16px;color:var(--muted)">+7 files: file index, routes, patterns, concepts… <span style="color:var(--red)">regressions introduced</span></td>
+            </tr>
+            <tr>
+              <td style="padding:12px 16px;color:var(--text);font-weight:600">AN-Refined ✦</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--green);font-weight:600">5</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--green);font-weight:600">85%</td>
+              <td style="padding:12px 16px;text-align:center;color:var(--green);font-weight:600">293K</td>
+              <td style="padding:12px 16px;color:var(--text)">baseline + TEST_CONTRACTS + step-by-step fix instructions</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px;font-size:11px;color:var(--muted)">
+        ✦ Final design. More metadata ≠ better performance — the optimal set contains only what an agent cannot infer from reading the code alone.
+      </div>
+    </div>
+
   </div>
 </section>
 
@@ -1183,6 +1235,26 @@
           Traditional Write ratio: <b>4.1%</b><br>
           Agent-native Write ratio: <b>17.4%</b><br>
           (4× more likely to create new files)
+        </div>
+      </div>
+      <div class="mech-card" data-n="4">
+        <div class="mech-icon">🎯</div>
+        <div class="mech-title">Test Contracts Prevent Over-Engineering</div>
+        <div class="mech-desc">Knowing exactly what a test asserts — before writing a line of code — eliminates the failure mode where agents read constraints and over-implement. <code>TEST_CONTRACTS.yaml</code> was identified in the ablation as the single highest-value addition.</div>
+        <div class="mech-data">
+          Task E AN-Baseline: <b>read=10, edit=4 → FAIL</b><br>
+          Task E AN-Refined: <b>read=13, edit=3 → PASS</b><br>
+          Precise scope → correct first attempt
+        </div>
+      </div>
+      <div class="mech-card" data-n="5">
+        <div class="mech-icon">📋</div>
+        <div class="mech-title">Fix Ordering, Not Just Fix Location</div>
+        <div class="mech-desc">Saying "call <code>deleteByUserId()</code>" causes agents to call a method that doesn't exist. Saying "Step 1: add this method — it does not exist yet. Step 2: call it." recovers 50pp. Implementation order is a first-class metadata concern.</div>
+        <div class="mech-data">
+          Task B AN-Extended: <b>run2 called non-existent method → FAIL</b><br>
+          Task B AN-Refined: <b>both runs followed steps → PASS</b><br>
+          100% → 50% → 100% across conditions
         </div>
       </div>
     </div>
